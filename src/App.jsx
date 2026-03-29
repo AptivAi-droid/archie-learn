@@ -80,7 +80,7 @@ function MeetArchieRoute({ children }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/archie-learn">
       <AuthProvider>
         <Routes>
           {/* Public routes */}
