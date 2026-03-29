@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "archie-learn",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite"],
+      "port": 5173,
+      "autoPort": true,
+      "cwd": "C:/Users/Raylene/OneDrive/Desktop/archie-learn"
+    }
+  ]
+}
