@@ -113,7 +113,7 @@ export default function Tutor() {
     saveMessage(sessionId, userMessage)
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch('https://glfivzdteschyfvyllqw.supabase.co/functions/v1/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
