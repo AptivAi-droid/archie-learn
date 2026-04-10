@@ -58,3 +58,13 @@ select {
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
 }
+
+/* iOS safe area for bottom nav */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Ensure page content doesn't hide behind bottom nav */
+.pb-nav {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+}

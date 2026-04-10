@@ -6,10 +6,15 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# Redirect /api/chat to the serverless function
+# Redirect API calls to serverless functions
 [[redirects]]
   from = "/api/chat"
   to = "/.netlify/functions/chat"
+  status = 200
+
+[[redirects]]
+  from = "/api/mark"
+  to = "/.netlify/functions/mark"
   status = 200
 
 # SPA fallback - all routes serve index.html

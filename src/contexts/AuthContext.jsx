@@ -26,10 +26,8 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    // Hard deadline — never stay on loading screen longer than 6s
     const failsafe = setTimeout(() => setLoading(false), 6000)
 
-    // Try to get current session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       const u = session?.user ?? null
       setUser(u)
@@ -71,6 +69,17 @@ export function AuthProvider({ children }) {
     return data
   }
 
+  async function signInWithGoogle() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/archie-learn/setup`,
+      },
+    })
+    if (error) throw error
+    return data
+  }
+
   async function signOut() {
     await supabase.auth.signOut()
     setUser(null)
@@ -93,7 +102,17 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, saveProfile, fetchProfile: loadProfile }}>
+    <AuthContext.Provider value={{
+      user,
+      profile,
+      loading,
+      signUp,
+      signIn,
+      signInWithGoogle,
+      signOut,
+      saveProfile,
+      fetchProfile: loadProfile,
+    }}>
       {children}
     </AuthContext.Provider>
   )

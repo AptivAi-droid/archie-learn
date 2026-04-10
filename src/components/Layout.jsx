@@ -3,7 +3,7 @@ import BottomNav from './BottomNav'
 
 export default function Layout() {
   return (
-    <div className="max-w-lg mx-auto relative">
+    <div className="max-w-lg mx-auto relative min-h-screen">
       <Outlet />
       <BottomNav />
     </div>

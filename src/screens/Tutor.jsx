@@ -1,16 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Send, Mic, ChevronDown } from 'lucide-react'
+import { Send, Mic, ChevronDown, Link2 } from 'lucide-react'
 import FeedbackModal from '../components/FeedbackModal'
+import LinkCodeModal from '../components/LinkCodeModal'
+import { SUBJECTS } from '../data/subjects'
+import { sanitizeInput } from '../lib/sanitize'
 
-const SUBJECTS = [
-  'Mathematics',
-  'Physical Sciences',
-  'English Home Language',
-  'Life Sciences',
-  'Accounting',
-]
+const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '/api/chat'
 
 const SYSTEM_PROMPT = (name, grade, subject) => `You are Archie, a warm and encouraging AI study partner for South African high school learners. You speak in a friendly, conversational tone — like a knowledgeable friend, not a textbook. You use simple, clear language appropriate to the learner's grade level.
 
@@ -37,6 +34,7 @@ export default function Tutor() {
   const [messageCount, setMessageCount] = useState(0)
   const [showFeedback, setShowFeedback] = useState(false)
   const [showSubjectPicker, setShowSubjectPicker] = useState(false)
+  const [showLinkCode, setShowLinkCode] = useState(false)
   const chatEndRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -104,7 +102,8 @@ export default function Tutor() {
     e.preventDefault()
     if (!input.trim() || loading) return
 
-    const userMessage = { role: 'user', content: input.trim() }
+    const safeInput = sanitizeInput(input, 2000)
+    const userMessage = { role: 'user', content: safeInput }
     const updatedMessages = [...messages, userMessage]
     setMessages(updatedMessages)
     setInput('')
@@ -113,7 +112,7 @@ export default function Tutor() {
     saveMessage(sessionId, userMessage)
 
     try {
-      const response = await fetch('https://glfivzdteschyfvyllqw.supabase.co/functions/v1/chat', {
+      const response = await fetch(CHAT_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -122,6 +121,7 @@ export default function Tutor() {
             content: m.content,
           })),
           system: SYSTEM_PROMPT(name, grade, subject),
+          userId: user?.id,
         }),
       })
 
@@ -152,9 +152,19 @@ export default function Tutor() {
       <header className="bg-navy px-4 py-3 shrink-0">
         <div className="flex items-center justify-between">
           <span className="text-gold font-bold text-lg">Archie Learn</span>
-          <span className="text-white text-sm opacity-80">
-            {name} — Grade {grade}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-white text-sm opacity-80">
+              {name} — Grade {grade}
+            </span>
+            <button
+              onClick={() => setShowLinkCode(true)}
+              className="text-white/50 hover:text-gold transition-colors"
+              title="Share code with parent"
+              aria-label="Generate parent link code"
+            >
+              <Link2 size={16} />
+            </button>
+          </div>
         </div>
         <button
           onClick={() => setShowSubjectPicker(!showSubjectPicker)}
@@ -255,6 +265,11 @@ export default function Tutor() {
           sessionId={sessionId}
           onClose={() => setShowFeedback(false)}
         />
+      )}
+
+      {/* Parent link code modal */}
+      {showLinkCode && (
+        <LinkCodeModal onClose={() => setShowLinkCode(false)} />
       )}
     </div>
   )

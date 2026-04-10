@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 export default function Welcome() {
   const navigate = useNavigate()
@@ -22,7 +22,7 @@ export default function Welcome() {
           I'm a Student
         </button>
         <button
-          onClick={() => navigate('/signup?role=parent')}
+          onClick={() => navigate('/signup?role=teacher')}
           className="w-full h-14 bg-white text-navy text-lg font-semibold rounded-xl border-2 border-navy active:opacity-90 transition-opacity"
         >
           I'm a Teacher or Parent
@@ -31,9 +31,9 @@ export default function Welcome() {
 
       <p className="text-sm text-gray-400 mt-12">
         Already have an account?{' '}
-        <a href="/login" className="text-gold font-medium underline">
+        <Link to="/login" className="text-gold font-medium underline">
           Log in
-        </a>
+        </Link>
       </p>
     </div>
   )
