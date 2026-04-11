@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  base: '/archie-learn/',
+  base: '/dev/archielearn/',
   plugins: [react()],
   server: {
     proxy: {
