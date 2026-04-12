@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { MessageCircle, BookOpen, Target, Flame } from 'lucide-react'
+import BuddyCard from '../components/BuddyCard'
 
 export default function Progress() {
   const { user, profile } = useAuth()
@@ -152,6 +153,9 @@ export default function Progress() {
                 </p>
               </div>
             )}
+
+            {/* BUDDY Companion */}
+            <BuddyCard />
 
             {/* Archie's note */}
             <div className="bg-navy rounded-2xl p-5">

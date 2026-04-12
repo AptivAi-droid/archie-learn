@@ -5,12 +5,39 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
-// Server-side Supabase client for rate limit checks
-// Uses the anon key — rate_limits RLS allows users to upsert their own rows
+// Server-side Supabase client
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
 )
+
+// ── AutoDream: fetch consolidated learner memory to inject into system prompt
+async function getLearnerMemory(userId) {
+  try {
+    const { data } = await supabase
+      .from('learner_memory')
+      .select('memory_text, last_consolidated_at')
+      .eq('user_id', userId)
+      .single()
+    return data?.memory_text || null
+  } catch {
+    return null
+  }
+}
+
+// ── AutoDream: check if dream should run (5+ sessions since last)
+async function shouldRunDream(userId) {
+  try {
+    const { data } = await supabase
+      .from('learner_memory')
+      .select('session_count_since_dream')
+      .eq('user_id', userId)
+      .single()
+    return (data?.session_count_since_dream || 0) >= 5
+  } catch {
+    return false
+  }
+}
 
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*'
 const RATE_LIMIT_PER_HOUR = parseInt(process.env.CHAT_RATE_LIMIT || '30')
@@ -58,6 +85,31 @@ export const handler = async (event) => {
     }
   }
 
+  // ── AutoDream: fetch learner memory and inject into system prompt ─────────
+  let memoryContext = null
+  if (userId) {
+    memoryContext = await getLearnerMemory(userId)
+  }
+
+  // ── AutoDream: trigger dream consolidation in background if due ───────────
+  if (userId) {
+    shouldRunDream(userId).then((due) => {
+      if (due) {
+        // Fire-and-forget: call autodream function asynchronously
+        const autodreamUrl = process.env.URL
+          ? `${process.env.URL}/.netlify/functions/autodream`
+          : null
+        if (autodreamUrl) {
+          fetch(autodreamUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId }),
+          }).catch(() => {}) // intentionally silent — non-critical
+        }
+      }
+    }).catch(() => {})
+  }
+
   // Sanitise messages
   const safeMessages = messages
     .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
@@ -67,7 +119,12 @@ export const handler = async (event) => {
     }))
     .slice(-20) // max last 20 messages to control token usage
 
-  const safeSystem = system ? stripHtml(String(system)).slice(0, 8000) : undefined
+  // Build final system prompt — inject learner memory if available
+  let safeSystem = system ? stripHtml(String(system)).slice(0, 8000) : undefined
+  if (memoryContext) {
+    const memoryBlock = `\n\n## What Archie remembers about this learner\n${memoryContext.slice(0, 1000)}`
+    safeSystem = safeSystem ? safeSystem + memoryBlock : memoryBlock
+  }
 
   try {
     const response = await anthropic.messages.create({
