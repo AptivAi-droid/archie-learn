@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { Send, Mic, ChevronDown, Link2 } from 'lucide-react'
@@ -6,6 +6,7 @@ import FeedbackModal from '../components/FeedbackModal'
 import LinkCodeModal from '../components/LinkCodeModal'
 import { SUBJECTS } from '../data/subjects'
 import { sanitizeInput } from '../lib/sanitize'
+import { getDemoResponse, isDemoMode, toggleDemoMode } from '../lib/demoResponses'
 
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '/api/chat'
 
@@ -35,8 +36,24 @@ export default function Tutor() {
   const [showFeedback, setShowFeedback] = useState(false)
   const [showSubjectPicker, setShowSubjectPicker] = useState(false)
   const [showLinkCode, setShowLinkCode] = useState(false)
+  const [demoMode, setDemoMode] = useState(isDemoMode)
+  const tapCountRef = useRef(0)
+  const tapTimerRef = useRef(null)
   const chatEndRef = useRef(null)
   const inputRef = useRef(null)
+
+  // Triple-tap logo to toggle demo mode (hidden from testers)
+  const handleLogoTap = useCallback(() => {
+    tapCountRef.current += 1
+    clearTimeout(tapTimerRef.current)
+    tapTimerRef.current = setTimeout(() => {
+      if (tapCountRef.current >= 3) {
+        const newState = toggleDemoMode()
+        setDemoMode(newState)
+      }
+      tapCountRef.current = 0
+    }, 400)
+  }, [])
 
   const name = profile?.first_name || 'Learner'
   const grade = profile?.grade || 10
@@ -111,6 +128,19 @@ export default function Tutor() {
     setMessageCount((c) => c + 1)
     saveMessage(sessionId, userMessage)
 
+    if (demoMode) {
+      // Demo mode: simulate realistic AI response with typing delay
+      const delay = 800 + Math.random() * 1500 // 0.8–2.3 seconds
+      await new Promise((r) => setTimeout(r, delay))
+      const demoContent = getDemoResponse(name, subject, messageCount, safeInput)
+      const assistantMessage = { role: 'assistant', content: demoContent }
+      setMessages((prev) => [...prev, assistantMessage])
+      saveMessage(sessionId, assistantMessage)
+      setLoading(false)
+      inputRef.current?.focus()
+      return
+    }
+
     try {
       const response = await fetch(CHAT_API_URL, {
         method: 'POST',
@@ -151,7 +181,12 @@ export default function Tutor() {
       {/* Top bar */}
       <header className="bg-navy px-4 py-3 shrink-0">
         <div className="flex items-center justify-between">
-          <span className="text-gold font-bold text-lg">Archie Learn</span>
+          <span
+            onClick={handleLogoTap}
+            className="text-gold font-bold text-lg select-none cursor-default"
+          >
+            Archie Learn{demoMode ? ' ·' : ''}
+          </span>
           <div className="flex items-center gap-3">
             <span className="text-white text-sm opacity-80">
               {name} — Grade {grade}

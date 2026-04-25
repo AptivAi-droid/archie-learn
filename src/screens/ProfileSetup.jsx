@@ -6,7 +6,7 @@ import { SUBJECTS, GRADES } from '../data/subjects'
 const ROLES = [
   { value: 'student', label: 'Student', desc: 'I want to learn and get tutored' },
   { value: 'teacher', label: 'Teacher', desc: 'I teach learners and want to track their progress' },
-  { value: 'parent', label: 'Parent / Guardian', desc: 'I want to monitor my child's learning' },
+  { value: 'parent', label: 'Parent / Guardian', desc: "I want to monitor my child's learning" },
 ]
 
 export default function ProfileSetup() {
