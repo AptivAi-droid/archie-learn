@@ -45,7 +45,7 @@ function ProtectedRoute({ children }) {
 function AuthRoute({ children }) {
   const { user, profile, loading } = useAuth()
 
-  if (loading) return null
+  if (loading) return <LoadingScreen />
   if (!user) return children
 
   if (profile?.role === 'admin') return <Navigate to="/admin" replace />
@@ -59,7 +59,7 @@ function AuthRoute({ children }) {
 function SetupRoute({ children }) {
   const { user, profile, loading } = useAuth()
 
-  if (loading) return null
+  if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/" replace />
   if (profile?.role === 'admin') return <Navigate to="/admin" replace />
 
@@ -101,7 +101,7 @@ function MeetArchieRoute({ children }) {
   const location = useLocation()
   const fromSetup = location.state?.fromSetup
 
-  if (loading) return null
+  if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/" replace />
   if (!profile?.first_name) return <Navigate to="/setup" replace />
   if (!fromSetup) return <Navigate to="/chat" replace />
