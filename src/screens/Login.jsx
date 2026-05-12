@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { FEATURES } from '../lib/featureFlags'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -56,22 +57,26 @@ export default function Login() {
           </div>
         )}
 
-        {/* Google OAuth */}
-        <button
-          type="button"
-          onClick={handleGoogle}
-          disabled={googleLoading || loading}
-          className="w-full h-14 bg-white border-2 border-gray-200 text-navy text-base font-semibold rounded-xl flex items-center justify-center gap-3 active:opacity-90 transition-opacity disabled:opacity-50"
-        >
-          <GoogleIcon />
-          {googleLoading ? 'Redirecting...' : 'Continue with Google'}
-        </button>
+        {/* Google OAuth — hidden via feature flag until Google provider is enabled in Supabase */}
+        {FEATURES.GOOGLE_OAUTH && (
+          <>
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={googleLoading || loading}
+              className="w-full h-14 bg-white border-2 border-gray-200 text-navy text-base font-semibold rounded-xl flex items-center justify-center gap-3 active:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              <GoogleIcon />
+              {googleLoading ? 'Redirecting...' : 'Continue with Google'}
+            </button>
 
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-xs text-gray-400">or</span>
-          <div className="flex-1 h-px bg-gray-200" />
-        </div>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-400">or</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+          </>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
