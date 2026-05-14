@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { FEATURES } from '../lib/featureFlags'
+import { supabase } from '../lib/supabase'
 
 export default function Signup() {
   const [email, setEmail] = useState('')
@@ -10,7 +11,9 @@ export default function Signup() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [confirmEmail, setConfirmEmail] = useState(false)
-  const { signUp, signInWithGoogle } = useAuth()
+  const [resending, setResending] = useState(false)
+  const [resendNote, setResendNote] = useState('')
+  const { signUp, signIn, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -24,15 +27,52 @@ export default function Signup() {
 
     try {
       const data = await signUp(email.trim(), password)
+
+      // Case 1: Supabase returned a session immediately (email confirm OFF)
       if (data.session) {
         navigate('/setup', { state: { roleHint } })
-      } else {
-        setConfirmEmail(true)
+        return
       }
+
+      // Case 2: No session — try immediate signin (works if user already confirmed elsewhere)
+      try {
+        await signIn(email.trim(), password)
+        navigate('/setup', { state: { roleHint } })
+        return
+      } catch {
+        // Falls through to confirmEmail screen
+      }
+
+      setConfirmEmail(true)
     } catch (err) {
-      setError(err.message)
+      // If user already exists, suggest log in
+      if (err.message?.toLowerCase().includes('already registered') || err.message?.toLowerCase().includes('user already')) {
+        setError('That email is already registered. Try logging in instead.')
+      } else {
+        setError(err.message || 'Sign up failed. Please try again.')
+      }
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleResend() {
+    setResending(true)
+    setResendNote('')
+    try {
+      const { error: resendErr } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim(),
+      })
+      if (resendErr) {
+        setResendNote('Could not resend right now. Please try again in a minute.')
+      } else {
+        setResendNote('Confirmation email re-sent. Check your spam folder too.')
+      }
+    } catch {
+      setResendNote('Could not resend right now.')
+    } finally {
+      setResending(false)
     }
   }
 
@@ -49,27 +89,48 @@ export default function Signup() {
 
   if (confirmEmail) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6">
-        <div className="w-16 h-16 bg-navy rounded-full flex items-center justify-center mx-auto mb-6">
-          <span className="text-gold text-2xl font-bold">A</span>
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-10">
+        <div className="w-full max-w-sm">
+          <div className="w-16 h-16 bg-navy rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-gold text-2xl font-bold">A</span>
+          </div>
+          <h1 className="text-2xl font-bold text-navy text-center">Check your email</h1>
+          <p className="text-gray-500 mt-3 text-center">
+            We sent a confirmation link to <strong className="text-navy break-all">{email}</strong>.
+            Tap the link, then come back and log in.
+          </p>
+
+          {resendNote && (
+            <div className="bg-gold/10 text-navy text-sm p-3 rounded-lg mt-4 text-center">
+              {resendNote}
+            </div>
+          )}
+
+          <button
+            onClick={handleResend}
+            disabled={resending}
+            className="mt-6 w-full h-12 bg-white border-2 border-navy text-navy text-base font-semibold rounded-xl active:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {resending ? 'Sending...' : 'Resend confirmation email'}
+          </button>
+
+          <button
+            onClick={() => navigate('/login')}
+            className="mt-3 w-full h-14 bg-navy text-white text-lg font-semibold rounded-xl active:opacity-90 transition-opacity"
+          >
+            Go to login
+          </button>
+
+          <p className="text-xs text-gray-400 mt-6 text-center leading-relaxed">
+            Didn't get the email? Check your spam folder, or contact your pilot administrator for a pre-created test account.
+          </p>
         </div>
-        <h1 className="text-2xl font-bold text-navy text-center">Check your email</h1>
-        <p className="text-gray-500 mt-3 text-center max-w-xs">
-          We sent a confirmation link to <strong className="text-navy">{email}</strong>.
-          Tap the link, then come back and log in.
-        </p>
-        <button
-          onClick={() => navigate('/login')}
-          className="mt-8 w-full max-w-sm h-14 bg-navy text-white text-lg font-semibold rounded-xl active:opacity-90 transition-opacity"
-        >
-          Go to login
-        </button>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-10">
       <div className="text-center mb-10">
         <div className="w-14 h-14 bg-navy rounded-full flex items-center justify-center mx-auto mb-4">
           <span className="text-gold text-xl font-bold">A</span>

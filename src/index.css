@@ -5,11 +5,12 @@
   --color-gold: #D4A017;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
+/* Use @layer base so Tailwind utilities can override these resets */
+@layer base {
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 html, body, #root {
