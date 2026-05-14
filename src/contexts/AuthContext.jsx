@@ -111,16 +111,37 @@ export function AuthProvider({ children }) {
   }
 
   async function saveProfile(profileData) {
+    const payload = {
+      id: user.id,
+      ...profileData,
+      updated_at: new Date().toISOString(),
+    }
+
     const { data, error } = await supabase
       .from('profiles')
-      .upsert({
-        id: user.id,
-        ...profileData,
-        updated_at: new Date().toISOString(),
-      })
+      .upsert(payload)
       .select()
       .single()
-    if (error) throw error
+
+    if (error) {
+      // If schema is missing a column (e.g. last_name/school/subjects), retry with core fields only
+      if (error.message?.includes('schema cache') || error.code === 'PGRST204') {
+        const coreFields = ['id', 'first_name', 'role', 'grade', 'primary_subject', 'updated_at']
+        const corePayload = Object.fromEntries(
+          Object.entries(payload).filter(([k]) => coreFields.includes(k))
+        )
+        const retry = await supabase
+          .from('profiles')
+          .upsert(corePayload)
+          .select()
+          .single()
+        if (retry.error) throw retry.error
+        setProfile(retry.data)
+        return retry.data
+      }
+      throw error
+    }
+
     setProfile(data)
     return data
   }
