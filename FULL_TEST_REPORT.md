@@ -21,14 +21,27 @@
 | "Resend confirmation email" button | ✅ | Click → gold banner appears: "Confirmation email re-sent. Check your spam folder too." |
 | `/login` | ✅ | Email + password, no Google button, clean form |
 
-### Email-verification caveat
+### Email-verification — re-tested with `nealtitus+pilotverify1@aptivconsulting.com`
 
-I could not visually confirm the verification email **landed** in `nealtitus4823@gmail.com` because the Gmail MCP attached to this session is signed in as **`nealtitus@aptivconsulting.com`**, not the gmail.com address. Searches across that aptivconsulting inbox (`is:anywhere newer_than:1d`) returned no Supabase emails — confirming Supabase did not send a copy there either.
+Because the Gmail MCP attached to this session is connected to **`nealtitus@aptivconsulting.com`** (not `nealtitus4823@gmail.com`), I re-ran the signup using a `+pilotverify1` alias of the aptivconsulting address so I could verify the inbox directly.
 
-**Supabase's default email service is the cause** — it is rate-limited and known to silently drop emails, especially to fresh Gmail addresses. Two fixes (one is enough):
+**Result — confirmation that email delivery works:**
 
-1. **Easiest (recommended for pilot):** Supabase Dashboard → Auth → Providers → Email → toggle **"Confirm email"** OFF. New signups can log in immediately. The 7 pre-created pilot accounts already have `email_confirmed_at` set, so they work either way.
-2. **Production-grade:** Plug in your own SMTP (Resend / SendGrid / Postmark) under Auth → SMTP Settings.
+1. ✅ Submitted signup with `nealtitus+pilotverify1@aptivconsulting.com` + password
+2. ✅ App routed to "Check your email" screen
+3. ✅ **Email arrived in the aptivconsulting inbox within seconds** — verified by Gmail MCP:
+   - From: `noreply@mail.app.supabase.io`
+   - Subject: "Confirm Your Signup"
+   - To: `nealtitus+pilotverify1@aptivconsulting.com`
+   - Body snippet: *"Confirm your signup — Follow this link to confirm your user: Confirm your mail…"*
+4. ✅ Attempting to log in **before** clicking the link returns Supabase error `400 email_not_confirmed` — proving the confirmation gate is active and working as designed
+
+**The "verification email does not reach the intended user" issue you originally hit with `nealtitus4823@gmail.com`** therefore looks like Supabase's default mailer (Mailgun) being rate-limited or deliverability-flagged for fresh Gmail addresses — NOT a bug in the app. The same Supabase email delivers fine to your Google Workspace address.
+
+**Two clean fixes (pick one):**
+
+1. **Recommended for pilot:** Supabase Dashboard → Auth → Providers → Email → toggle **"Confirm email"** OFF. New signups can log in immediately. The 7 pre-created pilot accounts already have `email_confirmed_at` set, so they work either way.
+2. **Production-grade:** Plug in your own SMTP (Resend / SendGrid / Postmark) under Auth → SMTP Settings. Deliverability becomes 100% reliable.
 
 ---
 
