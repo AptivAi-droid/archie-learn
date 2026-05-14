@@ -22,7 +22,17 @@ export default function Login() {
       // AuthContext onAuthStateChange will load profile and the route guards will redirect
       navigate('/chat')
     } catch (err) {
-      setError(err.message)
+      // Surface email-confirmation problems clearly — common Supabase default-mailer pain point
+      const msg = (err.message || '').toLowerCase()
+      if (msg.includes('not confirmed') || msg.includes('email_not_confirmed')) {
+        setError(
+          "Your email hasn't been confirmed yet. Please check your inbox (and spam folder) for a confirmation link from Supabase. If you never received one, contact your pilot administrator — your account can be confirmed manually."
+        )
+      } else if (msg.includes('invalid login') || msg.includes('invalid_credentials')) {
+        setError('Email or password is incorrect. Please try again.')
+      } else {
+        setError(err.message || 'Sign in failed. Please try again.')
+      }
     } finally {
       setLoading(false)
     }

@@ -14,6 +14,7 @@ export default function TeacherDashboard() {
   const [showCreateClass, setShowCreateClass] = useState(false)
   const [showAddStudent, setShowAddStudent] = useState(false)
   const [tab, setTab] = useState('students')
+  const [setupNeeded, setSetupNeeded] = useState(false)
 
   useEffect(() => {
     fetchClasses()
@@ -26,11 +27,19 @@ export default function TeacherDashboard() {
   async function fetchClasses() {
     if (!user) return
     setLoadingClasses(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('teacher_classes')
       .select('*')
       .eq('teacher_id', user.id)
       .order('created_at', { ascending: false })
+
+    // Detect missing-table scenarios so the UI can show a clear setup banner
+    if (error && (error.code === 'PGRST205' || error.code === '42P01' || error.message?.toLowerCase().includes('does not exist'))) {
+      setSetupNeeded(true)
+      setClasses([])
+      setLoadingClasses(false)
+      return
+    }
 
     setClasses(data || [])
     if (data && data.length > 0 && !selectedClass) {
@@ -165,7 +174,9 @@ export default function TeacherDashboard() {
         )}
       </div>
 
-      {classes.length === 0 && !loadingClasses ? (
+      {setupNeeded ? (
+        <SetupRequiredBanner />
+      ) : classes.length === 0 && !loadingClasses ? (
         <EmptyState onCreateClass={() => setShowCreateClass(true)} />
       ) : selectedClass && (
         <div className="p-4 max-w-2xl mx-auto">
@@ -308,6 +319,26 @@ function EmptyState({ onCreateClass }) {
   )
 }
 
+function SetupRequiredBanner() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center max-w-lg mx-auto">
+      <div className="w-14 h-14 bg-gold/20 rounded-full flex items-center justify-center mb-4">
+        <Users size={28} className="text-gold" />
+      </div>
+      <h2 className="text-navy font-bold text-xl mb-2">Teacher classroom features need setup</h2>
+      <p className="text-gray-500 text-sm mb-4 leading-relaxed">
+        Your administrator needs to apply the latest database migrations to enable class management.
+        Until then, students can still chat with Archie, view lessons and track their own progress —
+        but teachers can't create classes or enrol students.
+      </p>
+      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-left text-xs text-gray-600 w-full">
+        <p className="font-semibold text-navy mb-1">For administrators:</p>
+        <p>Open the Supabase SQL Editor and run the two migration files in <code className="bg-white px-1 rounded">supabase/migrations/</code> (002 + 20260412…). Full instructions in <code className="bg-white px-1 rounded">APPLY_THIS_TO_SUPABASE.md</code>.</p>
+      </div>
+    </div>
+  )
+}
+
 function CreateClassModal({ teacherId, onClose, onCreated }) {
   const [name, setName] = useState('')
   const [subject, setSubject] = useState('')
@@ -331,7 +362,12 @@ function CreateClassModal({ teacherId, onClose, onCreated }) {
       .single()
 
     if (err) {
-      setError('Could not create class. Please try again.')
+      // Friendly message when the table just doesn't exist yet
+      if (err.code === 'PGRST205' || err.code === '42P01' || err.message?.toLowerCase().includes('does not exist')) {
+        setError('Teacher classroom features are not yet enabled. Ask your administrator to apply the database migrations (see APPLY_THIS_TO_SUPABASE.md in the repo).')
+      } else {
+        setError(err.message || 'Could not create class. Please try again.')
+      }
     } else {
       onCreated(data)
     }
