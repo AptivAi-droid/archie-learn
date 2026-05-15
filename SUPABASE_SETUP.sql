@@ -139,36 +139,39 @@ alter table public.lesson_views enable row level security;
 -- Fix feedback RLS (was missing)
 alter table public.feedback enable row level security;
 
-create policy if not exists "Users can insert own feedback"
-  on public.feedback for insert
+drop policy if exists "Users can insert own feedback" on public.feedback;
+
+create policy "Users can insert own feedback" on public.feedback for insert
   with check (auth.uid() = user_id);
 
-create policy if not exists "Users can view own feedback"
-  on public.feedback for select
+drop policy if exists "Users can view own feedback" on public.feedback;
+
+create policy "Users can view own feedback" on public.feedback for select
   using (auth.uid() = user_id);
 
 -- Lessons: all authenticated users can read
-create policy "Authenticated users can read lessons"
-  on public.lessons for select
+drop policy if exists "Authenticated users can read lessons" on public.lessons;
+create policy "Authenticated users can read lessons" on public.lessons for select
   using (auth.role() = 'authenticated');
 
 -- Practice questions: all authenticated users can read
-create policy "Authenticated users can read practice questions"
-  on public.practice_questions for select
+drop policy if exists "Authenticated users can read practice questions" on public.practice_questions;
+create policy "Authenticated users can read practice questions" on public.practice_questions for select
   using (auth.role() = 'authenticated');
 
 -- User answers: own only
-create policy "Users can insert own answers"
-  on public.user_answers for insert
+drop policy if exists "Users can insert own answers" on public.user_answers;
+create policy "Users can insert own answers" on public.user_answers for insert
   with check (auth.uid() = user_id);
 
-create policy "Users can view own answers"
-  on public.user_answers for select
+drop policy if exists "Users can view own answers" on public.user_answers;
+
+create policy "Users can view own answers" on public.user_answers for select
   using (auth.uid() = user_id);
 
 -- Teachers can view answers for students in their classes
-create policy "Teachers can view class student answers"
-  on public.user_answers for select
+drop policy if exists "Teachers can view class student answers" on public.user_answers;
+create policy "Teachers can view class student answers" on public.user_answers for select
   using (
     exists (
       select 1 from public.class_enrollments ce
@@ -179,41 +182,44 @@ create policy "Teachers can view class student answers"
   );
 
 -- Parent–student links
-create policy "Parents can view own links"
-  on public.parent_student_links for select
+drop policy if exists "Parents can view own links" on public.parent_student_links;
+create policy "Parents can view own links" on public.parent_student_links for select
   using (auth.uid() = parent_id);
 
-create policy "Parents can insert own links"
-  on public.parent_student_links for insert
+drop policy if exists "Parents can insert own links" on public.parent_student_links;
+
+create policy "Parents can insert own links" on public.parent_student_links for insert
   with check (auth.uid() = parent_id);
 
 -- Link codes: students can manage their own codes
-create policy "Students can create link codes"
-  on public.link_codes for insert
+drop policy if exists "Students can create link codes" on public.link_codes;
+create policy "Students can create link codes" on public.link_codes for insert
   with check (auth.uid() = student_id);
 
-create policy "Students can view own link codes"
-  on public.link_codes for select
+drop policy if exists "Students can view own link codes" on public.link_codes;
+
+create policy "Students can view own link codes" on public.link_codes for select
   using (auth.uid() = student_id);
 
 -- Parents can look up a code (needed to redeem it)
-create policy "Anyone authenticated can read link codes to redeem"
-  on public.link_codes for select
+drop policy if exists "Anyone authenticated can read link codes to redeem" on public.link_codes;
+create policy "Anyone authenticated can read link codes to redeem" on public.link_codes for select
   using (auth.role() = 'authenticated');
 
-create policy "Parents can mark link codes as used"
-  on public.link_codes for update
+drop policy if exists "Parents can mark link codes as used" on public.link_codes;
+
+create policy "Parents can mark link codes as used" on public.link_codes for update
   using (auth.role() = 'authenticated');
 
 -- Teacher classes
-create policy "Teachers can manage own classes"
-  on public.teacher_classes for all
+drop policy if exists "Teachers can manage own classes" on public.teacher_classes;
+create policy "Teachers can manage own classes" on public.teacher_classes for all
   using (auth.uid() = teacher_id)
   with check (auth.uid() = teacher_id);
 
 -- Students/parents can see classes they're enrolled in
-create policy "Students can see their classes"
-  on public.teacher_classes for select
+drop policy if exists "Students can see their classes" on public.teacher_classes;
+create policy "Students can see their classes" on public.teacher_classes for select
   using (
     exists (
       select 1 from public.class_enrollments
@@ -223,8 +229,8 @@ create policy "Students can see their classes"
   );
 
 -- Class enrollments
-create policy "Teachers can manage enrollments for their classes"
-  on public.class_enrollments for all
+drop policy if exists "Teachers can manage enrollments for their classes" on public.class_enrollments;
+create policy "Teachers can manage enrollments for their classes" on public.class_enrollments for all
   using (
     exists (
       select 1 from public.teacher_classes
@@ -240,34 +246,39 @@ create policy "Teachers can manage enrollments for their classes"
     )
   );
 
-create policy "Students can view own enrollments"
-  on public.class_enrollments for select
+drop policy if exists "Students can view own enrollments" on public.class_enrollments;
+
+create policy "Students can view own enrollments" on public.class_enrollments for select
   using (auth.uid() = student_id);
 
 -- Rate limits: users manage own
-create policy "Users can read own rate limits"
-  on public.rate_limits for select
+drop policy if exists "Users can read own rate limits" on public.rate_limits;
+create policy "Users can read own rate limits" on public.rate_limits for select
   using (auth.uid() = user_id);
 
-create policy "Users can upsert own rate limits"
-  on public.rate_limits for insert
+drop policy if exists "Users can upsert own rate limits" on public.rate_limits;
+
+create policy "Users can upsert own rate limits" on public.rate_limits for insert
   with check (auth.uid() = user_id);
 
-create policy "Users can update own rate limits"
-  on public.rate_limits for update
+drop policy if exists "Users can update own rate limits" on public.rate_limits;
+
+create policy "Users can update own rate limits" on public.rate_limits for update
   using (auth.uid() = user_id);
 
 -- Lesson views: own only, teachers can see class students
-create policy "Users can log own lesson views"
-  on public.lesson_views for insert
+drop policy if exists "Users can log own lesson views" on public.lesson_views;
+create policy "Users can log own lesson views" on public.lesson_views for insert
   with check (auth.uid() = user_id);
 
-create policy "Users can see own lesson views"
-  on public.lesson_views for select
+drop policy if exists "Users can see own lesson views" on public.lesson_views;
+
+create policy "Users can see own lesson views" on public.lesson_views for select
   using (auth.uid() = user_id);
 
-create policy "Teachers can see class students lesson views"
-  on public.lesson_views for select
+drop policy if exists "Teachers can see class students lesson views" on public.lesson_views;
+
+create policy "Teachers can see class students lesson views" on public.lesson_views for select
   using (
     exists (
       select 1 from public.class_enrollments ce
@@ -278,8 +289,8 @@ create policy "Teachers can see class students lesson views"
   );
 
 -- Parents can view linked student's lesson views
-create policy "Parents can view linked student lesson views"
-  on public.lesson_views for select
+drop policy if exists "Parents can view linked student lesson views" on public.lesson_views;
+create policy "Parents can view linked student lesson views" on public.lesson_views for select
   using (
     exists (
       select 1 from public.parent_student_links
@@ -290,8 +301,8 @@ create policy "Parents can view linked student lesson views"
   );
 
 -- Parents can view linked student's chat sessions
-create policy "Parents can view linked student sessions"
-  on public.chat_sessions for select
+drop policy if exists "Parents can view linked student sessions" on public.chat_sessions;
+create policy "Parents can view linked student sessions" on public.chat_sessions for select
   using (
     exists (
       select 1 from public.parent_student_links
@@ -302,8 +313,8 @@ create policy "Parents can view linked student sessions"
   );
 
 -- Parents can view linked student profiles
-create policy "Parents can view linked student profiles"
-  on public.profiles for select
+drop policy if exists "Parents can view linked student profiles" on public.profiles;
+create policy "Parents can view linked student profiles" on public.profiles for select
   using (
     exists (
       select 1 from public.parent_student_links
@@ -314,8 +325,8 @@ create policy "Parents can view linked student profiles"
   );
 
 -- Teachers can view enrolled student profiles
-create policy "Teachers can view enrolled student profiles"
-  on public.profiles for select
+drop policy if exists "Teachers can view enrolled student profiles" on public.profiles;
+create policy "Teachers can view enrolled student profiles" on public.profiles for select
   using (
     exists (
       select 1 from public.class_enrollments ce
@@ -326,8 +337,8 @@ create policy "Teachers can view enrolled student profiles"
   );
 
 -- Teachers can view enrolled student sessions
-create policy "Teachers can view enrolled student sessions"
-  on public.chat_sessions for select
+drop policy if exists "Teachers can view enrolled student sessions" on public.chat_sessions;
+create policy "Teachers can view enrolled student sessions" on public.chat_sessions for select
   using (
     exists (
       select 1 from public.class_enrollments ce
@@ -447,8 +458,8 @@ CREATE TABLE IF NOT EXISTS buddy_companions (
 CREATE INDEX IF NOT EXISTS idx_buddy_companions_user_id ON buddy_companions(user_id);
 
 ALTER TABLE buddy_companions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage own buddy"
-  ON buddy_companions FOR ALL
+drop policy if exists "Users can manage own buddy" on buddy_companions;
+create policy "Users can manage own buddy" on buddy_companions FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
@@ -469,11 +480,11 @@ CREATE INDEX IF NOT EXISTS idx_learner_memory_user_id ON learner_memory(user_id)
 
 ALTER TABLE learner_memory ENABLE ROW LEVEL SECURITY;
 -- Service role only — backend writes, frontend reads own row
-CREATE POLICY "Users can read own memory"
-  ON learner_memory FOR SELECT
+drop policy if exists "Users can read own memory" on learner_memory;
+create policy "Users can read own memory" on learner_memory FOR SELECT
   USING (auth.uid() = user_id);
-CREATE POLICY "Service role can write memory"
-  ON learner_memory FOR ALL
+drop policy if exists "Service role can write memory" on learner_memory;
+create policy "Service role can write memory" on learner_memory FOR ALL
   USING (true)
   WITH CHECK (true);
 
@@ -491,11 +502,11 @@ CREATE TABLE IF NOT EXISTS curricula (
 CREATE INDEX IF NOT EXISTS idx_curricula_user_id ON curricula(user_id);
 
 ALTER TABLE curricula ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can read own curriculum"
-  ON curricula FOR SELECT
+drop policy if exists "Users can read own curriculum" on curricula;
+create policy "Users can read own curriculum" on curricula FOR SELECT
   USING (auth.uid() = user_id);
-CREATE POLICY "Service role can write curriculum"
-  ON curricula FOR ALL
+drop policy if exists "Service role can write curriculum" on curricula;
+create policy "Service role can write curriculum" on curricula FOR ALL
   USING (true)
   WITH CHECK (true);
 
@@ -511,11 +522,11 @@ CREATE TABLE IF NOT EXISTS ultraplans (
 CREATE INDEX IF NOT EXISTS idx_ultraplans_user_id ON ultraplans(user_id);
 
 ALTER TABLE ultraplans ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can read own ultraplans"
-  ON ultraplans FOR SELECT
+drop policy if exists "Users can read own ultraplans" on ultraplans;
+create policy "Users can read own ultraplans" on ultraplans FOR SELECT
   USING (auth.uid() = user_id);
-CREATE POLICY "Service role can insert ultraplans"
-  ON ultraplans FOR INSERT
+drop policy if exists "Service role can insert ultraplans" on ultraplans;
+create policy "Service role can insert ultraplans" on ultraplans FOR INSERT
   WITH CHECK (true);
 
 -- ── 5. SESSION COUNT TRIGGER — increments AutoDream counter ─
@@ -546,14 +557,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS set_buddy_updated_at ON buddy_companions;
 CREATE TRIGGER set_buddy_updated_at
   BEFORE UPDATE ON buddy_companions
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS set_memory_updated_at ON learner_memory;
 CREATE TRIGGER set_memory_updated_at
   BEFORE UPDATE ON learner_memory
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS set_curricula_updated_at ON curricula;
 CREATE TRIGGER set_curricula_updated_at
   BEFORE UPDATE ON curricula
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
