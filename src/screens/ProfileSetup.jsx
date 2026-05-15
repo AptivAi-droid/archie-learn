@@ -87,27 +87,19 @@ export default function ProfileSetup() {
           </div>
         )}
 
-        {/* Role selector */}
+        {/* Role display — locked. Role is determined by signup flow:
+             - Student signup → 'student' (under-18 DOB)
+             - Apply flow → AI-vetted teacher/parent (set by edge function before this screen)
+             The Postgres trigger enforces this at the DB layer; the UI just reflects it. */}
         <div>
-          <label className="block text-sm font-medium text-navy mb-2">I am a…</label>
-          <div className="space-y-2">
-            {ROLES.map((r) => (
-              <button
-                key={r.value}
-                type="button"
-                onClick={() => setRole(r.value)}
-                className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-colors ${
-                  role === r.value
-                    ? 'border-navy bg-navy/5'
-                    : 'border-gray-200 bg-white'
-                }`}
-              >
-                <p className={`font-semibold text-sm ${role === r.value ? 'text-navy' : 'text-gray-700'}`}>
-                  {r.label}
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">{r.desc}</p>
-              </button>
-            ))}
+          <label className="block text-sm font-medium text-navy mb-2">Setting up as</label>
+          <div className="px-4 py-3 rounded-xl border-2 border-navy bg-navy/5">
+            <p className="font-semibold text-sm text-navy">
+              {ROLES.find((r) => r.value === role)?.label || 'Student'}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {ROLES.find((r) => r.value === role)?.desc || 'I want to learn and get tutored'}
+            </p>
           </div>
         </div>
 

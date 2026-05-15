@@ -4,11 +4,13 @@ import ErrorBoundary from './components/ErrorBoundary'
 import Layout from './components/Layout'
 import Welcome from './screens/Welcome'
 import Signup from './screens/Signup'
+import Apply from './screens/Apply'
 import Login from './screens/Login'
 import ForgotPassword from './screens/ForgotPassword'
 import ResetPassword from './screens/ResetPassword'
 import ProfileSetup from './screens/ProfileSetup'
 import MeetArchie from './screens/MeetArchie'
+import PickCompanion from './screens/PickCompanion'
 import Tutor from './screens/Tutor'
 import Lessons from './screens/Lessons'
 import Practice from './screens/Practice'
@@ -16,6 +18,7 @@ import Progress from './screens/Progress'
 import ParentView from './screens/ParentView'
 import TeacherDashboard from './screens/TeacherDashboard'
 import AdminDashboard from './screens/AdminDashboard'
+import AdminLogin from './screens/AdminLogin'
 import NotFound from './screens/NotFound'
 
 function LoadingScreen() {
@@ -72,7 +75,7 @@ function AdminRoute({ children }) {
   const { user, profile, loading } = useAuth()
 
   if (loading) return <LoadingScreen />
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/admin/login" replace />
   if (profile?.role !== 'admin') return <Navigate to="/" replace />
 
   return children
@@ -120,6 +123,7 @@ export default function App() {
             {/* Public routes */}
             <Route path="/" element={<AuthRoute><Welcome /></AuthRoute>} />
             <Route path="/signup" element={<AuthRoute><Signup /></AuthRoute>} />
+            <Route path="/apply" element={<Apply />} />
             <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -127,6 +131,7 @@ export default function App() {
             {/* Setup routes */}
             <Route path="/setup" element={<SetupRoute><ProfileSetup /></SetupRoute>} />
             <Route path="/meet-archie" element={<MeetArchieRoute><MeetArchie /></MeetArchieRoute>} />
+            <Route path="/pick-companion" element={<ProtectedRoute><PickCompanion /></ProtectedRoute>} />
 
             {/* Student routes with bottom nav */}
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -139,6 +144,7 @@ export default function App() {
             {/* Role-specific routes */}
             <Route path="/parent" element={<ParentRoute><ErrorBoundary><ParentView /></ErrorBoundary></ParentRoute>} />
             <Route path="/teacher" element={<TeacherRoute><ErrorBoundary><TeacherDashboard /></ErrorBoundary></TeacherRoute>} />
+            <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminRoute><ErrorBoundary><AdminDashboard /></ErrorBoundary></AdminRoute>} />
 
             {/* 404 */}

@@ -26,7 +26,7 @@ export default function MeetArchie() {
         </div>
 
         <button
-          onClick={() => navigate('/chat')}
+          onClick={() => navigate('/pick-companion')}
           className="w-full h-14 bg-gold text-navy text-lg font-bold rounded-xl active:opacity-90 transition-opacity"
         >
           Let's do this

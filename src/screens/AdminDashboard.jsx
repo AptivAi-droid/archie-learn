@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { LogOut, Download, MessageCircle, Star, Users, ChevronDown, ChevronUp } from 'lucide-react'
+import { LogOut, Download, MessageCircle, Star, Users, ChevronDown, ChevronUp, Check, X, AlertTriangle } from 'lucide-react'
 
 export default function AdminDashboard() {
   const { signOut, user } = useAuth()
   const [feedback, setFeedback] = useState([])
   const [users, setUsers] = useState([])
   const [sessions, setSessions] = useState([])
+  const [applications, setApplications] = useState([])
   const [expandedSession, setExpandedSession] = useState(null)
   const [sessionMessages, setSessionMessages] = useState({})
   const [tab, setTab] = useState('overview')
@@ -19,15 +20,56 @@ export default function AdminDashboard() {
 
   async function loadData() {
     setLoading(true)
-    const [feedbackRes, usersRes, sessionsRes] = await Promise.all([
+    const [feedbackRes, usersRes, sessionsRes, applicationsRes] = await Promise.all([
       supabase.from('feedback').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
       supabase.from('chat_sessions').select('*').order('created_at', { ascending: false }),
+      supabase.from('signup_applications').select('*').order('created_at', { ascending: false }),
     ])
     setFeedback(feedbackRes.data || [])
     setUsers(usersRes.data || [])
     setSessions(sessionsRes.data || [])
+    setApplications(applicationsRes.data || [])
     setLoading(false)
+  }
+
+  async function approveApplication(app) {
+    // Admin manually approves an application that the AI flagged for review.
+    // We can't create the auth user from the client (need service role),
+    // so we mark it as admin-approved and the admin needs to create the user
+    // manually OR re-trigger the vet function. For pilot simplicity, we just
+    // mark the row and the admin shares pre-created creds out-of-band.
+    const { error } = await supabase
+      .from('signup_applications')
+      .update({
+        admin_decision: 'APPROVED',
+        reviewed_by: user.id,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq('id', app.id)
+    if (error) {
+      alert('Could not update: ' + error.message)
+      return
+    }
+    loadData()
+  }
+
+  async function rejectApplication(app) {
+    const note = window.prompt('Reason for rejection (optional):') || null
+    const { error } = await supabase
+      .from('signup_applications')
+      .update({
+        admin_decision: 'REJECTED',
+        admin_notes: note,
+        reviewed_by: user.id,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq('id', app.id)
+    if (error) {
+      alert('Could not update: ' + error.message)
+      return
+    }
+    loadData()
   }
 
   async function loadMessages(sessionId) {
@@ -97,7 +139,7 @@ export default function AdminDashboard() {
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 bg-white">
-        {['overview', 'feedback', 'sessions', 'users'].map((t) => (
+        {['overview', 'invites', 'feedback', 'sessions', 'users'].map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -135,6 +177,89 @@ export default function AdminDashboard() {
               ))}
               {feedback.length === 0 && <p className="text-gray-400 text-sm">No feedback yet.</p>}
             </div>
+          </div>
+        )}
+
+        {/* Invites tab — applications from the AI vetting flow */}
+        {tab === 'invites' && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-navy font-bold">Signup Applications</h2>
+              <button
+                onClick={() => exportCSV(applications, 'archie-applications')}
+                className="flex items-center gap-1 text-sm text-navy bg-gold/20 px-3 py-1.5 rounded-full"
+              >
+                <Download size={14} /> CSV
+              </button>
+            </div>
+            {applications.length === 0 ? (
+              <p className="text-gray-400 text-center py-8">No applications yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {applications.map((app) => {
+                  const isPending = !app.admin_decision && app.ai_decision === 'NEEDS_REVIEW'
+                  const decided = app.admin_decision || (app.ai_decision === 'APPROVED' ? 'AUTO-APPROVED' : app.ai_decision === 'REJECTED' ? 'AUTO-REJECTED' : null)
+                  return (
+                    <div key={app.id} className="bg-white rounded-xl p-4 shadow-sm">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-navy">{app.email}</p>
+                          <p className="text-xs text-gray-400">
+                            {app.requested_role} · age {Math.floor((Date.now() - new Date(app.dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} · {new Date(app.created_at).toLocaleString('en-ZA')}
+                          </p>
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${
+                            decided === 'AUTO-APPROVED' || decided === 'APPROVED'
+                              ? 'bg-green-100 text-green-700'
+                              : decided === 'AUTO-REJECTED' || decided === 'REJECTED'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-gold/20 text-navy'
+                          }`}
+                        >
+                          {decided || 'PENDING'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-600 mb-2">
+                        <span className="font-semibold">AI confidence:</span> {app.ai_confidence != null ? `${(app.ai_confidence * 100).toFixed(0)}%` : '—'}
+                        {app.ai_reasoning && <p className="mt-1">{app.ai_reasoning}</p>}
+                      </div>
+                      {app.ai_red_flags && app.ai_red_flags.length > 0 && (
+                        <div className="flex items-center gap-1 text-xs text-red-500 mb-2">
+                          <AlertTriangle size={12} />
+                          {app.ai_red_flags.join(', ')}
+                        </div>
+                      )}
+                      <details className="text-xs text-gray-500 mb-2">
+                        <summary className="cursor-pointer text-navy font-medium">Application details</summary>
+                        <pre className="bg-gray-50 p-2 rounded mt-1 overflow-x-auto text-[10px]">{JSON.stringify(app.application_data, null, 2)}</pre>
+                      </details>
+                      {isPending && (
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => approveApplication(app)}
+                            className="flex-1 flex items-center justify-center gap-1 text-sm bg-green-500 text-white py-1.5 rounded-lg font-medium"
+                          >
+                            <Check size={14} /> Approve
+                          </button>
+                          <button
+                            onClick={() => rejectApplication(app)}
+                            className="flex-1 flex items-center justify-center gap-1 text-sm bg-red-500 text-white py-1.5 rounded-lg font-medium"
+                          >
+                            <X size={14} /> Reject
+                          </button>
+                        </div>
+                      )}
+                      {app.admin_decision && (
+                        <p className="text-xs text-gray-400 mt-2">
+                          Admin: {app.admin_decision} {app.admin_notes ? `— ${app.admin_notes}` : ''}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 

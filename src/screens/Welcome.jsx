@@ -22,7 +22,7 @@ export default function Welcome() {
           I'm a Student
         </button>
         <button
-          onClick={() => navigate('/signup?role=teacher')}
+          onClick={() => navigate('/apply')}
           className="w-full h-14 bg-white text-navy text-lg font-semibold rounded-xl border-2 border-navy active:opacity-90 transition-opacity"
         >
           I'm a Teacher or Parent

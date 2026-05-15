@@ -65,7 +65,8 @@ export default function BuddyCard({ compact = false, sessionCompleted = false })
   if (loading) return <BuddySkeleton compact={compact} />
   if (!buddy) return null
 
-  const { species, stats, level, xp } = buddy
+  const { species, stats, level, xp, nickname } = buddy
+  const displayName = nickname || species.name
   const xpNeeded = xpForLevel(level)
   const xpPct = Math.min(100, Math.round((xp / xpNeeded) * 100))
   const topStats = Object.entries(stats).sort((a, b) => b[1] - a[1]).slice(0, 3)
@@ -75,7 +76,7 @@ export default function BuddyCard({ compact = false, sessionCompleted = false })
       <div className={`rounded-2xl p-3 flex items-center gap-3 ${RARITY_BG[species.rarity]}`}>
         <span className="text-3xl">{species.emoji}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-navy font-bold text-sm truncate">{species.name}</p>
+          <p className="text-navy font-bold text-sm truncate">{displayName}</p>
           <p className={`text-xs font-semibold ${RARITY_COLOURS[species.rarity]}`}>{species.rarity} · Lv {level}</p>
           <div className="mt-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-gold rounded-full transition-all duration-500" style={{ width: `${xpPct}%` }} />
@@ -100,7 +101,10 @@ export default function BuddyCard({ compact = false, sessionCompleted = false })
       <div className="flex items-center gap-4 mb-4">
         <div className="text-6xl leading-none">{species.emoji}</div>
         <div>
-          <h3 className="text-navy font-bold text-lg">{species.name}</h3>
+          <h3 className="text-navy font-bold text-lg">{displayName}</h3>
+          {nickname && nickname !== species.name && (
+            <p className="text-xs text-gray-400 -mt-0.5">{species.name}</p>
+          )}
           <p className={`text-sm font-bold ${RARITY_COLOURS[species.rarity]}`}>{species.rarity}</p>
           <p className="text-xs text-gray-500 mt-0.5 italic">"{species.soul}"</p>
         </div>
