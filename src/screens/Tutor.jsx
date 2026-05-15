@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Send, Mic, ChevronDown, Link2 } from 'lucide-react'
+import { Send, ChevronDown, Link2 } from 'lucide-react'
 import FeedbackModal from '../components/FeedbackModal'
 import LinkCodeModal from '../components/LinkCodeModal'
 import { SUBJECTS } from '../data/subjects'
@@ -275,13 +275,6 @@ export default function Tutor() {
             className="flex-1 h-12 px-4 border-2 border-gray-200 rounded-full text-base focus:border-navy focus:outline-none transition-colors"
             disabled={loading}
           />
-          <button
-            type="button"
-            className="w-12 h-12 flex items-center justify-center text-gray-400"
-            aria-label="Voice input (coming soon)"
-          >
-            <Mic size={22} />
-          </button>
           <button
             type="submit"
             disabled={!input.trim() || loading}
