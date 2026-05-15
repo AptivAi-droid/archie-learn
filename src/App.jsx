@@ -5,6 +5,8 @@ import Layout from './components/Layout'
 import Welcome from './screens/Welcome'
 import Signup from './screens/Signup'
 import Login from './screens/Login'
+import ForgotPassword from './screens/ForgotPassword'
+import ResetPassword from './screens/ResetPassword'
 import ProfileSetup from './screens/ProfileSetup'
 import MeetArchie from './screens/MeetArchie'
 import Tutor from './screens/Tutor'
@@ -119,6 +121,8 @@ export default function App() {
             <Route path="/" element={<AuthRoute><Welcome /></AuthRoute>} />
             <Route path="/signup" element={<AuthRoute><Signup /></AuthRoute>} />
             <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* Setup routes */}
             <Route path="/setup" element={<SetupRoute><ProfileSetup /></SetupRoute>} />

@@ -93,6 +93,20 @@ export function AuthProvider({ children }) {
     return data
   }
 
+  async function resetPasswordForEmail(email) {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/archie-learn/reset-password`,
+    })
+    if (error) throw error
+    return data
+  }
+
+  async function updatePassword(newPassword) {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw error
+    return data
+  }
+
   async function signInWithGoogle() {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -156,6 +170,8 @@ export function AuthProvider({ children }) {
       signInWithGoogle,
       signOut,
       saveProfile,
+      resetPasswordForEmail,
+      updatePassword,
       fetchProfile: loadProfile,
     }}>
       {children}

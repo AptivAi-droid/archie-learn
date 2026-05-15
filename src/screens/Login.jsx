@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { FEATURES } from '../lib/featureFlags'
 
@@ -11,6 +11,8 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const { signIn, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const passwordResetNotice = location.state?.passwordReset
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -61,6 +63,12 @@ export default function Login() {
       </div>
 
       <div className="w-full max-w-sm space-y-4">
+        {passwordResetNotice && !error && (
+          <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg" role="status">
+            Password updated. Please log in with your new password.
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg" role="alert">
             {error}
@@ -103,7 +111,12 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-navy mb-1">Password</label>
+            <div className="flex items-baseline justify-between mb-1">
+              <label className="block text-sm font-medium text-navy">Password</label>
+              <Link to="/forgot-password" className="text-xs text-gold font-medium hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <input
               type="password"
               required
