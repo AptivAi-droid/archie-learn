@@ -371,7 +371,7 @@ insert into public.practice_questions (subject, grade, question_text, model_answ
 -- Mathematics Grade 11
 ('Mathematics', 11, 'Determine the discriminant of 2x² − 3x + 1 = 0 and describe the nature of the roots.', 'Δ = b² − 4ac = 9 − 8 = 1 > 0, so two distinct real roots', 5, 'medium'),
 ('Mathematics', 11, 'Solve for x: log₂(x) = 5', 'x = 2⁵ = 32', 4, 'medium'),
-('Mathematics', 11, 'Find the derivative of f(x) = 3x² − 4x + 7 using first principles or rules.', "f'(x) = 6x − 4", 5, 'hard'),
+('Mathematics', 11, 'Find the derivative of f(x) = 3x² − 4x + 7 using first principles or rules.', 'f''(x) = 6x − 4', 5, 'hard'),
 
 -- Mathematics Grade 12
 ('Mathematics', 12, 'Evaluate: ∫(4x³ − 2x) dx', '∫(4x³ − 2x) dx = x⁴ − x² + C', 5, 'hard'),
