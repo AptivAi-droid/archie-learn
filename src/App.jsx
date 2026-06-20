@@ -67,6 +67,11 @@ function SetupRoute({ children }) {
   if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/" replace />
   if (profile?.role === 'admin') return <Navigate to="/admin" replace />
+  if (profile?.role === 'teacher') return <Navigate to="/teacher" replace />
+  if (profile?.role === 'parent') return <Navigate to="/parent" replace />
+  // Already-completed student profile (e.g. a returning Google user landing back
+  // on /setup after OAuth) → send straight into the app instead of re-running setup.
+  if (profile?.first_name) return <Navigate to="/chat" replace />
 
   return children
 }

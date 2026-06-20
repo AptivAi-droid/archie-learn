@@ -6,8 +6,8 @@
 - Student: `learnertest2@archielearn.com` / `Archie2026!` (also tested `learnertest1@`)
 - Teacher: `teacher1@archielearn.com` / `Archie2026!`
 - Parent: `parent1@archielearn.com` / `Archie2026!` (also `parent2@`)
-- Admin: `nealtitus@aptivconsulting.com` / `ArchiAdmin2026!`
-- Signup verification: `nealtitus4823@gmail.com` (Gmail MCP is connected to `nealtitus@aptivconsulting.com`, so I could not inspect that inbox directly — see note below)
+- Admin: `neal.titus@aptiv.co.za` / `ArchiAdmin2026!`
+- Signup verification: `nealtitus4823@gmail.com` (Gmail MCP is connected to `neal.titus@aptiv.co.za`, so I could not inspect that inbox directly — see note below)
 
 ---
 
@@ -23,7 +23,7 @@
 
 ### Email-verification — re-tested with `nealtitus+pilotverify1@aptivconsulting.com`
 
-Because the Gmail MCP attached to this session is connected to **`nealtitus@aptivconsulting.com`** (not `nealtitus4823@gmail.com`), I re-ran the signup using a `+pilotverify1` alias of the aptivconsulting address so I could verify the inbox directly.
+Because the Gmail MCP attached to this session is connected to **`neal.titus@aptiv.co.za`** (not `nealtitus4823@gmail.com`), I re-ran the signup using a `+pilotverify1` alias of the aptivconsulting address so I could verify the inbox directly.
 
 **Result — confirmation that email delivery works:**
 
@@ -150,7 +150,7 @@ After applying, the affected features unlock immediately — no re-deploy needed
 
 ## 6. Admin role (already verified earlier)
 
-Logged in with `nealtitus@aptivconsulting.com` → routed straight to `/admin` (skipping setup, because admin role is detected). Dashboard shows:
+Logged in with `neal.titus@aptiv.co.za` → routed straight to `/admin` (skipping setup, because admin role is detected). Dashboard shows:
 
 - 4 tabs: **Overview**, **Feedback**, **Sessions**, **Users**
 - Overview: 3 Users, 28 Sessions, Avg Rating (no ratings yet), 0 Feedback, "Recent Feedback" section

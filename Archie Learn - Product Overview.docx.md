@@ -148,4 +148,4 @@ The long-term roadmap includes:
 ---
 
 *Built by Aptiv Consulting | Powered by Anthropic Claude AI*
-*Contact: nealtitus@aptivconsulting.com*
+*Contact: neal.titus@aptiv.co.za*

@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { FEATURES } from '../lib/featureFlags'
+import GoogleButton from '../components/GoogleButton'
 
 // Computes age in years from an ISO yyyy-mm-dd string
 function computeAge(dobIso) {
@@ -24,7 +26,8 @@ export default function Signup() {
   const [confirmEmail, setConfirmEmail] = useState(false)
   const [resending, setResending] = useState(false)
   const [resendNote, setResendNote] = useState('')
-  const { signUp, signIn } = useAuth()
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const { signUp, signIn, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
 
   const age = useMemo(() => computeAge(dob), [dob])
@@ -75,6 +78,24 @@ export default function Signup() {
       }
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleGoogle() {
+    setError('')
+    setGoogleLoading(true)
+    try {
+      await signInWithGoogle()
+      // OAuth redirect — browser navigates away. New Google users land on /setup
+      // (a self-signup, so the DB trigger assigns role=student).
+    } catch (err) {
+      const msg = (err.message || '').toLowerCase()
+      if (msg.includes('provider is not enabled') || msg.includes('unsupported provider') || msg.includes('validation_failed')) {
+        setError("Google sign-up isn't available yet. Please sign up with your email below.")
+      } else {
+        setError(err.message || 'Google sign-up failed. Please try again.')
+      }
+      setGoogleLoading(false)
     }
   }
 
@@ -139,6 +160,10 @@ export default function Signup() {
       <div className="w-full max-w-sm space-y-4">
         {error && (
           <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg" role="alert">{error}</div>
+        )}
+
+        {FEATURES.GOOGLE_OAUTH && (
+          <GoogleButton onClick={handleGoogle} loading={googleLoading} disabled={loading} />
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
