@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Archie Learn — User Manual</title>
+<style>
+  :root{
+    --navy:#0A1628; --navy2:#13233b; --gold:#E6B450; --gold-soft:#f6e9c9;
+    --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb; --bg:#f7f8fa; --white:#fff;
+    --green:#2e9e5b; --red:#dc4d4d;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.6}
+  .wrap{max-width:980px;margin:0 auto;padding:0 22px}
+  a{color:#1f5fae}
+  h1,h2,h3{color:var(--navy);line-height:1.25}
+  h2{margin-top:0;border-bottom:3px solid var(--gold);padding-bottom:8px;font-size:1.7rem}
+  h3{font-size:1.2rem;margin-bottom:.3rem}
+  code{background:#eef1f5;padding:1px 6px;border-radius:5px;font-size:.92em}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:.95rem;background:#fff}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:var(--navy);color:#fff;font-weight:600}
+  tr:nth-child(even) td{background:#fafbfc}
+  /* Cover */
+  .cover{background:linear-gradient(155deg,var(--navy),#16294a);color:#fff;padding:64px 22px 54px;text-align:center}
+  .cover .logo{width:88px;height:88px;border-radius:50%;background:var(--navy2);border:2px solid var(--gold);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 22px;font-size:42px;font-weight:800;color:var(--gold)}
+  .cover h1{color:#fff;font-size:2.9rem;margin:0}
+  .cover .tag{color:var(--gold);font-size:1.25rem;margin-top:6px;font-weight:600}
+  .cover .sub{color:#c7d2e0;margin-top:18px;font-size:1rem}
+  .badge{display:inline-block;background:rgba(230,180,80,.15);color:var(--gold);border:1px solid var(--gold);
+    border-radius:999px;padding:5px 14px;font-size:.8rem;margin-top:22px;letter-spacing:.3px}
+  /* Layout */
+  section{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 28px;margin:22px 0;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .lead{font-size:1.06rem;color:#374151}
+  .toc{position:sticky;top:0;background:var(--navy);color:#fff;z-index:20;padding:10px 0;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+  .toc .wrap{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center}
+  .toc b{color:var(--gold);margin-right:8px}
+  .toc a{color:#dbe4f0;text-decoration:none;font-size:.86rem}
+  .toc a:hover{color:var(--gold)}
+  .note{background:#fff8e8;border-left:4px solid var(--gold);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+  .tip{background:#eaf7ef;border-left:4px solid var(--green);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+  .warn{background:#fdecec;border-left:4px solid var(--red);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+  ol li,ul li{margin:5px 0}
+  .grid2{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+  .grid2 .col{flex:1;min-width:260px}
+  .figcap{font-size:.82rem;color:var(--muted);text-align:center;margin-top:8px;font-style:italic}
+  /* ---------- Phone mockups ---------- */
+  .phone{width:270px;background:var(--navy);border-radius:30px;padding:10px;box-shadow:0 10px 30px rgba(10,22,40,.25);margin:0 auto;flex:0 0 auto}
+  .phone .screen{background:var(--bg);border-radius:22px;overflow:hidden;min-height:480px;display:flex;flex-direction:column}
+  .scr-pad{padding:18px 16px}
+  .center{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;flex:1}
+  .m-logo{width:46px;height:46px;border-radius:50%;background:var(--navy);color:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;margin-bottom:12px}
+  .m-h{font-weight:800;color:var(--navy);font-size:1.25rem}
+  .m-sub{color:var(--muted);font-size:.8rem;margin-top:2px}
+  .m-tag{color:var(--gold);font-weight:700;font-size:.85rem;margin-top:2px}
+  .ipt{border:2px solid var(--line);border-radius:11px;background:#fff;padding:9px 11px;font-size:.78rem;color:#9aa3af;margin-top:9px}
+  .btn{border-radius:11px;padding:11px;text-align:center;font-weight:700;font-size:.82rem;margin-top:10px}
+  .btn-navy{background:var(--navy);color:#fff}
+  .btn-gold{background:var(--gold);color:var(--navy)}
+  .btn-out{background:#fff;color:var(--navy);border:2px solid var(--navy)}
+  .btn-g{background:#fff;border:2px solid var(--line);color:var(--navy);display:flex;gap:8px;align-items:center;justify-content:center}
+  .g-ic{width:15px;height:15px;border-radius:50%;background:conic-gradient(#EA4335 0 25%,#FBBC05 0 50%,#34A853 0 75%,#4285F4 0 100%)}
+  .divider{display:flex;align-items:center;gap:8px;margin:10px 0;color:#aab;font-size:.7rem}
+  .divider:before,.divider:after{content:"";height:1px;background:var(--line);flex:1}
+  .m-head{background:var(--navy);padding:12px 14px}
+  .m-head .t{color:#fff;font-weight:800;font-size:.95rem}
+  .m-head .s{color:var(--gold);font-size:.72rem}
+  .m-head .brand{color:var(--gold);font-weight:800;font-size:.9rem}
+  .chip{display:inline-block;border:1.5px solid var(--line);border-radius:999px;padding:5px 10px;font-size:.7rem;margin:3px 3px 0 0;color:var(--navy);background:#fff}
+  .chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .card{background:#fff;border-radius:13px;padding:11px 12px;margin-top:9px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .bub{max-width:84%;padding:8px 11px;border-radius:14px;font-size:.74rem;margin-top:7px;line-height:1.35}
+  .bub.a{background:var(--navy);color:#fff;border-bottom-left-radius:4px;align-self:flex-start}
+  .bub.u{background:var(--gold);color:var(--navy);border-bottom-right-radius:4px;align-self:flex-end;margin-left:auto}
+  .nav5{display:flex;border-top:1px solid var(--line);background:#fff}
+  .nav5 div{flex:1;text-align:center;padding:8px 0;font-size:.62rem;color:var(--muted)}
+  .nav5 div.on{color:var(--navy);font-weight:700}
+  .nav5 .d{font-size:14px;display:block}
+  .bar{height:6px;background:var(--line);border-radius:6px;margin-top:8px;overflow:hidden}
+  .bar > i{display:block;height:100%;background:var(--gold);border-radius:6px}
+  .stat{display:flex;justify-content:space-between;font-size:.74rem;padding:5px 0;border-bottom:1px solid #f0f0f0}
+  .big{font-size:2rem;font-weight:800;color:var(--gold);text-align:center}
+  .foot{background:var(--navy);color:#c7d2e0;text-align:center;padding:30px 22px;margin-top:30px;font-size:.9rem}
+  .foot a{color:var(--gold)}
+  @media print{
+    .toc{display:none}
+    section{break-inside:avoid;box-shadow:none;border:1px solid #ccc}
+    body{background:#fff}
+    .phone{box-shadow:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="logo">A</div>
+  <h1>Archie Learn</h1>
+  <div class="tag">Your private school. In your pocket.</div>
+  <div class="sub">User Manual &middot; CAPS-aligned AI study partner for South African learners (Grades 8&ndash;12)</div>
+  <div class="badge">Pilot / Test Edition &middot; v1.0</div>
+</div>
+
+<div class="toc">
+  <div class="wrap">
+    <b>Contents</b>
+    <a href="#about">About</a>
+    <a href="#start">Getting Started</a>
+    <a href="#student">Student Guide</a>
+    <a href="#chat">Archie Chat</a>
+    <a href="#lessons">Lessons</a>
+    <a href="#practice">Practice</a>
+    <a href="#progress">Progress</a>
+    <a href="#teacher">Teachers</a>
+    <a href="#parent">Parents</a>
+    <a href="#admin">Admin</a>
+    <a href="#subjects">Subjects</a>
+    <a href="#privacy">Privacy</a>
+    <a href="#faq">Troubleshooting</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+<section id="about">
+  <h2>1. What is Archie Learn?</h2>
+  <p class="lead">Archie Learn is a mobile-first web app that gives every South African high-school learner their own
+  patient, CAPS-aligned AI study partner &mdash; <strong>Archie</strong>. Archie never just hands over answers. He
+  coaches learners to understand, using everyday South African examples (taxi fares, spaza shops, rands and cents),
+  and celebrates every win.</p>
+  <div class="grid2">
+    <div class="col">
+      <h3>What learners can do</h3>
+      <ul>
+        <li><strong>Chat with Archie</strong> &mdash; a Socratic AI tutor for any subject.</li>
+        <li><strong>Lessons</strong> &mdash; CAPS-aligned topic notes with worked examples.</li>
+        <li><strong>Practice</strong> &mdash; exam-style questions marked instantly by AI.</li>
+        <li><strong>Progress</strong> &mdash; streaks, session counts and a learning companion.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>Who it&rsquo;s for</h3>
+      <ul>
+        <li><strong>Students</strong> (Grades 8&ndash;12) &mdash; the core experience.</li>
+        <li><strong>Teachers</strong> &mdash; create classes and track learners.</li>
+        <li><strong>Parents/Guardians</strong> &mdash; follow a child&rsquo;s progress.</li>
+        <li><strong>Admins</strong> &mdash; oversee usage, feedback and accounts.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note"><strong>About the pictures in this manual.</strong> The screen images are faithful renderings of
+  the live app (same navy &amp; gold design, same wording and layout). Once the database is switched on for the pilot,
+  these can be replaced with live photo screenshots on request.</div>
+</section>
+
+<section id="start">
+  <h2>2. Getting Started</h2>
+  <p>Open the app link in any modern browser (Chrome, Safari, Edge) on a phone, tablet or computer. You can also
+  &ldquo;Add to Home Screen&rdquo; to use it like an installed app.</p>
+  <p><strong>Live pilot address:</strong> <code>https://aptivai-droid.github.io/archie-learn/</code></p>
+
+  <div class="grid2">
+    <div class="col">
+      <h3>The Welcome screen</h3>
+      <p>Three choices:</p>
+      <ul>
+        <li><strong>I&rsquo;m a Student</strong> &rarr; quick self sign-up.</li>
+        <li><strong>I&rsquo;m a Teacher or Parent</strong> &rarr; a short application (adults are vetted before access).</li>
+        <li><strong>Log in</strong> &rarr; for returning users.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="phone"><div class="screen"><div class="scr-pad center">
+        <div class="m-h" style="font-size:1.5rem">Archie Learn</div>
+        <div class="m-tag">Your private school.<br>In your pocket.</div>
+        <div style="width:100%;margin-top:26px">
+          <div class="btn btn-navy">I&rsquo;m a Student</div>
+          <div class="btn btn-out">I&rsquo;m a Teacher or Parent</div>
+        </div>
+        <div class="m-sub" style="margin-top:22px">Already have an account? <b style="color:var(--gold)">Log in</b></div>
+      </div></div></div>
+      <div class="figcap">Welcome screen</div>
+    </div>
+  </div>
+
+  <h3>Signing up as a student</h3>
+  <div class="grid2">
+    <div class="col">
+      <p>Two ways to create a student account:</p>
+      <ol>
+        <li><strong>Continue with Google</strong> &mdash; one tap, sign up with a Google address. No password to remember.</li>
+        <li><strong>Email + password + date of birth</strong> &mdash; password must be at least 8 characters.</li>
+      </ol>
+      <p>The date of birth sets the right experience:</p>
+      <ul>
+        <li><strong>Under 13:</strong> sign-up is not allowed (the app is for ages 13+).</li>
+        <li><strong>13&ndash;17:</strong> continues as a student.</li>
+        <li><strong>18+:</strong> redirected to the Teacher/Parent application.</li>
+      </ul>
+      <div class="note">If email confirmation is switched on, you&rsquo;ll see a <em>&ldquo;Check your email&rdquo;</em>
+      screen with a <strong>Resend</strong> button. For the pilot this is usually turned off so you can log in immediately.</div>
+    </div>
+    <div class="col">
+      <div class="phone"><div class="screen"><div class="scr-pad">
+        <div class="center" style="flex:none;margin-bottom:6px">
+          <div class="m-logo">A</div><div class="m-h">Sign up as a student</div>
+          <div class="m-sub">Quick &mdash; only a few details</div>
+        </div>
+        <div class="btn btn-g"><span class="g-ic"></span>Continue with Google</div>
+        <div class="divider">or</div>
+        <div class="ipt">your@email.com</div>
+        <div class="ipt">At least 8 characters</div>
+        <div class="ipt">Date of birth</div>
+        <div class="btn btn-navy">Sign up</div>
+      </div></div></div>
+      <div class="figcap">Signup &mdash; with the new &ldquo;Continue with Google&rdquo; option</div>
+    </div>
+  </div>
+
+  <h3>Logging in</h3>
+  <div class="grid2">
+    <div class="col">
+      <div class="phone"><div class="screen"><div class="scr-pad">
+        <div class="center" style="flex:none;margin-bottom:6px">
+          <div class="m-logo">A</div><div class="m-h">Welcome back</div>
+          <div class="m-sub">Log in to continue learning</div>
+        </div>
+        <div class="btn btn-g"><span class="g-ic"></span>Continue with Google</div>
+        <div class="divider">or</div>
+        <div class="ipt">your@email.com</div>
+        <div class="ipt">Your password</div>
+        <div class="btn btn-navy">Log in</div>
+        <div class="m-sub" style="text-align:right;margin-top:6px">Forgot password?</div>
+      </div></div></div>
+      <div class="figcap">Login &mdash; email/password or Google</div>
+    </div>
+    <div class="col">
+      <h3>Returning users</h3>
+      <p>Log in with the same method you used to sign up. If you forget your password, tap
+      <strong>Forgot password?</strong> and follow the reset link sent to your email.</p>
+      <div class="tip"><strong>Google sign-in note.</strong> The &ldquo;Continue with Google&rdquo; button is built in.
+      It becomes fully active once the Google provider is switched on in the project settings; until then it shows a
+      friendly &ldquo;not available yet&rdquo; message instead of failing.</div>
+    </div>
+  </div>
+</section>
+
+<section id="student">
+  <h2>3. Student Guide</h2>
+  <h3>Step 1 &mdash; Tell Archie about you (Profile setup)</h3>
+  <div class="grid2">
+    <div class="col">
+      <p>First time in, you set up your profile:</p>
+      <ul>
+        <li><strong>First &amp; last name</strong></li>
+        <li><strong>School</strong> (optional)</li>
+        <li><strong>Grade</strong> (8&ndash;12)</li>
+        <li><strong>Subjects</strong> &mdash; pick up to 5. The first one becomes your <em>primary</em> subject.</li>
+      </ul>
+      <p>Tap <strong>Let&rsquo;s go</strong> to meet Archie.</p>
+    </div>
+    <div class="col">
+      <div class="phone"><div class="screen"><div class="scr-pad">
+        <div class="center" style="flex:none"><div class="m-h">Tell us about you</div>
+        <div class="m-sub">So Archie can personalise your experience</div></div>
+        <div class="card" style="border:2px solid var(--navy);background:#eef1f7">
+          <div style="font-weight:700;font-size:.78rem;color:var(--navy)">Student</div>
+          <div class="m-sub">I want to learn and get tutored</div>
+        </div>
+        <div class="ipt">First name</div>
+        <div class="ipt">Grade &#9662;</div>
+        <div style="margin-top:9px">
+          <span class="chip on">Mathematics</span><span class="chip">Physical Sciences</span>
+          <span class="chip">Accounting</span><span class="chip">Geography</span>
+        </div>
+        <div class="btn btn-gold">Let&rsquo;s go</div>
+      </div></div></div>
+      <div class="figcap">Profile setup</div>
+    </div>
+  </div>
+
+  <h3>Step 2 &mdash; Meet Archie</h3>
+  <p>A short welcome from Archie introduces how he works: <em>&ldquo;I won&rsquo;t just give you answers. I&rsquo;ll
+  help you actually understand.&rdquo;</em> Tap <strong>Let&rsquo;s do this</strong> to open the chat.</p>
+  <p>After this, students live in a <strong>5-tab app</strong>: Chat, Lessons, Practice, Progress, and Out (sign out).</p>
+</section>
+
+<section id="chat">
+  <h2>4. Archie Chat (the AI tutor)</h2>
+  <div class="grid2">
+    <div class="col">
+      <p>This is the heart of the app. Archie is a <strong>Socratic tutor</strong>:</p>
+      <ul>
+        <li>He <strong>won&rsquo;t answer until you&rsquo;ve had a go first</strong> &mdash; he asks guiding questions.</li>
+        <li>Stuck after 2 tries? He gives a <strong>hint</strong>. After 3, he walks through it step by step.</li>
+        <li>He always says what you got <strong>right</strong> first, keeps replies short, and uses SA examples.</li>
+        <li>Celebrates wins: <em>&ldquo;Sharp sharp!&rdquo;</em>, <em>&ldquo;You&rsquo;ve got it now.&rdquo;</em></li>
+      </ul>
+      <h3>Switching subjects</h3>
+      <p>Tap the subject name under the header to switch between your subjects at any time. Your choice is saved.</p>
+      <h3>Demo mode (for showcases)</h3>
+      <p><strong>Triple-tap the &ldquo;Archie Learn&rdquo; wordmark</strong> in the chat header. A small dot
+      (<code>&middot;</code>) appears next to the name. In demo mode Archie replies with realistic, hand-crafted
+      answers <em>without using any AI credits</em> &mdash; perfect for partner demos. Triple-tap again to turn it off.</p>
+      <div class="tip"><strong>Parent link.</strong> The chain-link icon in the chat header lets a learner generate a
+      6-character code to share with a parent (see the Parents section).</div>
+    </div>
+    <div class="col">
+      <div class="phone"><div class="screen">
+        <div class="m-head">
+          <div style="display:flex;justify-content:space-between"><span class="brand">Archie Learn</span><span class="m-sub" style="color:#cdd7e6">Lebo &mdash; Gr 11 &#128279;</span></div>
+          <div class="s">Physical Sciences &#9662;</div>
+        </div>
+        <div class="scr-pad" style="flex:1;display:flex;flex-direction:column;background:var(--bg)">
+          <div class="bub a">Hey Lebo! What are we working on today?</div>
+          <div class="bub u">I don&rsquo;t get Newton&rsquo;s third law</div>
+          <div class="bub a">Great topic! Before I explain &mdash; what do you think happens when you push against a wall? Have a go first.</div>
+        </div>
+        <div class="scr-pad" style="flex:none;background:#fff;border-top:1px solid var(--line)">
+          <div class="m-sub" style="text-align:center;margin-bottom:4px">Archie won&rsquo;t answer until you&rsquo;ve had a go first.</div>
+          <div class="ipt" style="margin:0">Type your message&hellip;</div>
+        </div>
+      </div></div>
+      <div class="figcap">Archie Chat &mdash; Socratic tutoring</div>
+    </div>
+  </div>
+</section>
+
+<section id="lessons">
+  <h2>5. Lessons (CAPS-aligned notes)</h2>
+  <div class="grid2">
+    <div class="col">
+      <p>Browse bite-sized, <strong>CAPS-aligned</strong> topics for your subject and grade. Each topic card expands
+      to show:</p>
+      <ul>
+        <li>A short <strong>summary</strong></li>
+        <li><strong>Key concepts</strong> (the must-knows)</li>
+        <li>A fully <strong>worked example</strong> with steps and the final answer</li>
+      </ul>
+      <p>Use the <strong>subject</strong> and <strong>grade</strong> dropdowns at the top to change what you see.
+      Lessons work even without an internet connection to the AI, because the content is built into the app.</p>
+      <div class="note">All <strong>9 subjects</strong> now have lesson content &mdash; including the newly added
+      <strong>Accounting, Mathematical Literacy, Geography</strong> and <strong>Business Studies</strong>
+      (see the Subjects table).</div>
+    </div>
+    <div class="col">
+      <div class="phone"><div class="screen">
+        <div class="m-head"><div class="t">Lessons</div><div class="s">CAPS-aligned content</div></div>
+        <div class="scr-pad">
+          <div style="display:flex;gap:8px"><div class="ipt" style="margin:0;flex:1">Geography &#9662;</div><div class="ipt" style="margin:0;width:74px">Grade 12 &#9662;</div></div>
+          <div class="card"><div style="font-weight:700;font-size:.8rem;color:var(--navy)">1 &nbsp; Synoptic Weather Maps &amp; SA Weather</div><div class="m-sub">Grade 12 &ndash; Climate and Weather</div></div>
+          <div class="card"><div style="font-weight:700;font-size:.8rem;color:var(--navy)">2 &nbsp; Drainage Systems &amp; Fluvial Landforms</div><div class="m-sub">Grade 12 &ndash; Geomorphology</div></div>
+          <div class="card" style="border:1px solid var(--gold)"><div style="font-weight:700;font-size:.8rem;color:var(--navy)">3 &nbsp; Economic Geography of SA &#9652;</div>
+            <div class="m-sub" style="margin:6px 0">Primary, secondary &amp; tertiary sectors, mining, industrial regions&hellip;</div>
+            <div style="background:var(--navy);border-radius:9px;padding:8px;margin-top:6px">
+              <div style="color:var(--gold);font-size:.62rem;font-weight:700">WORKED EXAMPLE</div>
+              <div style="color:#fff;font-size:.7rem;margin-top:3px">Classify: (a) platinum mine (b) car plant (c) bank</div>
+              <div style="color:var(--gold);font-size:.7rem;margin-top:5px">Answer: primary, secondary, tertiary</div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="figcap">Lessons &mdash; expandable topic with worked example</div>
+    </div>
+  </div>
+</section>
+
+<section id="practice">
+  <h2>6. Practice (AI-marked questions)</h2>
+  <div class="grid2">
+    <div class="col">
+      <p>Test yourself with exam-style questions that Archie marks instantly:</p>
+      <ol>
+        <li>Choose a <strong>subject</strong> and <strong>grade</strong>. You get a set of questions.</li>
+        <li>Type your answer and tap <strong>Submit answer</strong>.</li>
+        <li>Archie returns a <strong>score</strong>, specific <strong>feedback</strong> on what you got right and
+        missed, and an <strong>encouraging note</strong>.</li>
+        <li>At the end you see your <strong>percentage</strong> and a per-question breakdown.</li>
+      </ol>
+      <div class="note">Practice needs the question database to be switched on. Until then it shows
+      <em>&ldquo;No practice questions available&rdquo;</em> &mdash; this unlocks once the project&rsquo;s database
+      setup is applied.</div>
+    </div>
+    <div class="col">
+      <div class="phone"><div class="screen">
+        <div class="m-head"><div class="t">Practice</div><div class="s">Test yourself with AI marking</div></div>
+        <div class="scr-pad">
+          <div class="card"><div class="m-sub">Question 1 of 5 &nbsp;&middot;&nbsp; <span class="chip" style="padding:2px 8px">medium &middot; 4 marks</span></div>
+            <div style="font-weight:700;font-size:.78rem;color:var(--navy);margin-top:6px">Explain why the Nile was central to Egyptian civilisation.</div></div>
+          <div class="card" style="border:1px solid var(--gold)">
+            <div style="display:flex;gap:8px;align-items:center"><div style="font-size:1.1rem;font-weight:800;color:var(--navy)">3 / 4</div><div class="m-sub">75%</div></div>
+            <div style="background:#eef1f7;border-radius:8px;padding:8px;margin-top:6px;font-size:.7rem">
+              <b style="color:var(--navy)">Archie&rsquo;s feedback:</b> Great &mdash; you covered fertile soil and transport.
+              Add irrigation in desert conditions for full marks.
+              <div style="color:var(--gold);font-weight:700;margin-top:4px">You&rsquo;re really getting this!</div>
+            </div>
+          </div>
+          <div class="btn btn-gold">Next question &rarr;</div>
+        </div>
+      </div></div>
+      <div class="figcap">Practice &mdash; instant AI marking &amp; feedback</div>
+    </div>
+  </div>
+</section>
+
+<section id="progress">
+  <h2>7. Progress &amp; your learning companion</h2>
+  <div class="grid2">
+    <div class="col">
+      <p>The Progress tab keeps learners motivated:</p>
+      <ul>
+        <li><strong>Streak</strong> &mdash; days in a row of studying.</li>
+        <li><strong>Sessions</strong> &mdash; total and this week.</li>
+        <li><strong>Questions done</strong> and <strong>practice average</strong>.</li>
+        <li>A <strong>learning companion</strong> (e.g. &ldquo;Sparknub&rdquo;) that levels up with XP and shows
+        focus, persistence and accuracy stats &mdash; a gentle gamification layer.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="phone"><div class="screen">
+        <div class="m-head"><div class="t">Progress</div><div class="s">Lebo, keep building that streak!</div></div>
+        <div class="scr-pad">
+          <div style="display:flex;gap:8px">
+            <div class="card" style="flex:1;text-align:center"><div class="big" style="font-size:1.5rem">4</div><div class="m-sub">Day streak</div></div>
+            <div class="card" style="flex:1;text-align:center"><div class="big" style="font-size:1.5rem">12</div><div class="m-sub">Sessions</div></div>
+          </div>
+          <div class="card">
+            <div style="font-weight:700;font-size:.8rem;color:var(--navy)">Sparknub &middot; Level 2</div>
+            <div class="bar"><i style="width:45%"></i></div>
+            <div class="stat"><span>Focus</span><b>99</b></div>
+            <div class="stat"><span>Persistence</span><b>94</b></div>
+            <div class="stat" style="border:none"><span>Accuracy</span><b>92</b></div>
+          </div>
+        </div>
+        <div class="nav5"><div><span class="d">&#128172;</span>Chat</div><div><span class="d">&#128214;</span>Lessons</div><div><span class="d">&#9998;</span>Practice</div><div class="on"><span class="d">&#128200;</span>Progress</div><div><span class="d">&#10150;</span>Out</div></div>
+      </div></div>
+      <div class="figcap">Progress &mdash; streaks &amp; companion</div>
+    </div>
+  </div>
+</section>
+
+<section id="teacher">
+  <h2>8. Teacher Guide</h2>
+  <div class="grid2">
+    <div class="col">
+      <p>Teachers apply via <strong>&ldquo;I&rsquo;m a Teacher or Parent&rdquo;</strong> and are vetted before access.
+      After logging in and completing a short profile, the <strong>Teacher Dashboard</strong> lets you:</p>
+      <ul>
+        <li><strong>Create a class</strong> (name, subject, grade).</li>
+        <li>Track each learner&rsquo;s sessions, ratings and practice scores.</li>
+        <li>Export class data as CSV (planned).</li>
+      </ul>
+      <div class="note">Creating classes needs the database setup applied. Until then you can log in and see the
+      dashboard, but &ldquo;Create class&rdquo; will report an error.</div>
+    </div>
+    <div class="col">
+      <div class="phone"><div class="screen">
+        <div class="m-head"><div style="display:flex;justify-content:space-between"><span class="t">Teacher Dashboard</span><span class="m-sub" style="color:#cdd7e6">Out</span></div><div class="s">Hi, Mrs Naidoo</div></div>
+        <div class="scr-pad center">
+          <div style="font-size:30px">&#128106;</div>
+          <div class="m-h" style="font-size:1rem;margin-top:6px">Create your first class</div>
+          <div class="m-sub" style="max-width:200px">Track your students&rsquo; Archie usage, practice scores and activity.</div>
+          <div class="btn btn-navy" style="width:100%">+ Create a class</div>
+        </div>
+      </div></div>
+      <div class="figcap">Teacher Dashboard</div>
+    </div>
+  </div>
+</section>
+
+<section id="parent">
+  <h2>9. Parent / Guardian Guide</h2>
+  <div class="grid2">
+    <div class="col">
+      <p>Parents also apply via <strong>&ldquo;I&rsquo;m a Teacher or Parent&rdquo;</strong>. Once in, you link to your
+      child&rsquo;s account:</p>
+      <ol>
+        <li>Ask your child to open Archie and tap the <strong>chain-link icon</strong> in the chat header to
+        generate a <strong>6-character code</strong>.</li>
+        <li>On your Parent Dashboard, type the code into <strong>Link a student account</strong> and tap
+        <strong>Link</strong>.</li>
+      </ol>
+      <p>Once linked you&rsquo;ll see your child&rsquo;s weekly sessions, questions answered, practice average and a
+      short note from Archie.</p>
+    </div>
+    <div class="col">
+      <div class="phone"><div class="screen">
+        <div class="m-head"><div style="display:flex;justify-content:space-between"><span class="t">Parent Dashboard</span><span class="m-sub" style="color:#cdd7e6">Out</span></div><div class="s">Hi, Pat</div></div>
+        <div class="scr-pad center">
+          <div style="font-size:30px">&#128106;</div>
+          <div class="m-h" style="font-size:1rem;margin-top:6px">Link your child&rsquo;s account</div>
+          <div class="card" style="width:100%">
+            <div class="m-sub">Enter the 6-character code</div>
+            <div class="ipt" style="text-align:center;letter-spacing:5px;color:var(--navy)">A B 3 K 9 Z</div>
+            <div class="btn btn-navy">Link</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="figcap">Parent Dashboard &mdash; link by code</div>
+    </div>
+  </div>
+</section>
+
+<section id="admin">
+  <h2>10. Admin Guide</h2>
+  <p>Admins sign in at <code>/admin/login</code> and land on a four-tab dashboard:</p>
+  <ul>
+    <li><strong>Overview</strong> &mdash; total users, sessions, average rating and recent feedback.</li>
+    <li><strong>Feedback</strong> &mdash; all learner ratings, with CSV export.</li>
+    <li><strong>Sessions</strong> &mdash; every chat session with expandable transcripts, CSV export.</li>
+    <li><strong>Users</strong> &mdash; per-user roll-up (name, role, grade, subject, sessions, average rating), CSV export.</li>
+  </ul>
+  <div class="tip">The admin dashboard reads only data that already exists, so it works even before the full database
+  setup is applied.</div>
+</section>
+
+<section id="subjects">
+  <h2>11. Subjects &amp; Grades</h2>
+  <p>Archie covers <strong>nine CAPS subjects</strong> across <strong>Grades 8&ndash;12</strong>. Chat works for all of
+  them; the Lessons library now has structured content for every subject:</p>
+  <table>
+    <tr><th>Subject</th><th>Lesson content (grades)</th><th>Notes</th></tr>
+    <tr><td>Mathematics</td><td>8&ndash;12</td><td>Core</td></tr>
+    <tr><td>Mathematical Literacy</td><td>10&ndash;12</td><td>FET phase only (added)</td></tr>
+    <tr><td>Physical Sciences</td><td>8&ndash;12</td><td>Core</td></tr>
+    <tr><td>Life Sciences</td><td>8&ndash;12</td><td>Core</td></tr>
+    <tr><td>English Home Language</td><td>8&ndash;12</td><td>Core</td></tr>
+    <tr><td>History</td><td>8&ndash;12</td><td>Core</td></tr>
+    <tr><td>Geography</td><td>8&ndash;12</td><td>Added</td></tr>
+    <tr><td>Accounting</td><td>8&ndash;12</td><td>EMS in 8&ndash;9; FET 10&ndash;12 (added)</td></tr>
+    <tr><td>Business Studies</td><td>8&ndash;12</td><td>EMS in 8&ndash;9; FET 10&ndash;12 (added)</td></tr>
+  </table>
+  <p>Each lesson topic includes key concepts and a worked example, written in plain language with South African context.</p>
+</section>
+
+<section id="privacy">
+  <h2>12. Privacy &amp; Safety</h2>
+  <ul>
+    <li><strong>Ages 13+.</strong> Sign-up blocks under-13s; adults are routed to a separate vetted application.</li>
+    <li><strong>POPIA-aware.</strong> Only the details needed to personalise learning are collected.</li>
+    <li><strong>Archie coaches, he doesn&rsquo;t cheat.</strong> He guides understanding rather than handing out answers.</li>
+    <li><strong>Teacher/Parent vetting.</strong> Adult accounts are reviewed before they gain access to learner data.</li>
+  </ul>
+  <div class="note">When signing up with Google, the date-of-birth age check is being extended to the profile step &mdash;
+  for now, restrict Google sign-up to the intended pilot users.</div>
+</section>
+
+<section id="faq">
+  <h2>13. Troubleshooting &amp; FAQ</h2>
+  <h3>&ldquo;Could not load questions&rdquo; on Practice / &ldquo;Could not create class&rdquo; for Teachers</h3>
+  <p>The database setup hasn&rsquo;t been applied yet. An administrator must run the project&rsquo;s SQL setup once;
+  then these features work immediately, with no app update needed.</p>
+
+  <h3>I signed up but never received a confirmation email</h3>
+  <p>For the pilot, email confirmation is usually turned off so you can log in straight away. If it&rsquo;s on, check
+  your spam folder or use the <strong>Resend confirmation email</strong> button. An admin can also confirm your account.</p>
+
+  <h3>Archie replies &ldquo;Eish, something went wrong&rdquo; in chat</h3>
+  <p>This means the AI service isn&rsquo;t reachable (usually AI credits need topping up, or the live AI backend
+  isn&rsquo;t connected yet). Use <strong>demo mode</strong> (triple-tap the logo) for a credit-free walkthrough.</p>
+
+  <h3>The &ldquo;Continue with Google&rdquo; button says it&rsquo;s not available</h3>
+  <p>The Google provider hasn&rsquo;t been switched on in project settings yet. Use email + password until then.</p>
+
+  <h3>How do I install the app on my phone?</h3>
+  <p>Open the link in your browser, then use the browser menu &rarr; <strong>Add to Home Screen</strong>. Archie then
+  opens like a normal app.</p>
+
+  <h3>Demo mode for showcases</h3>
+  <p>Triple-tap the &ldquo;Archie Learn&rdquo; wordmark in the chat header. Archie answers without using AI credits &mdash;
+  ideal for partner demonstrations.</p>
+</section>
+
+</div>
+
+<div class="foot">
+  <strong style="color:var(--gold)">Archie Learn</strong> &mdash; Your private school. In your pocket.<br>
+  Built by Aptiv Consulting &middot; Powered by Anthropic Claude AI<br>
+  Support: <a href="mailto:neal.titus@aptiv.co.za">neal.titus@aptiv.co.za</a>
+</div>
+
+</body>
+</html>

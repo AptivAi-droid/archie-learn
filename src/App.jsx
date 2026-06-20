@@ -1,25 +1,29 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import Layout from './components/Layout'
-import Welcome from './screens/Welcome'
-import Signup from './screens/Signup'
-import Apply from './screens/Apply'
-import Login from './screens/Login'
-import ForgotPassword from './screens/ForgotPassword'
-import ResetPassword from './screens/ResetPassword'
-import ProfileSetup from './screens/ProfileSetup'
-import MeetArchie from './screens/MeetArchie'
-import PickCompanion from './screens/PickCompanion'
-import Tutor from './screens/Tutor'
-import Lessons from './screens/Lessons'
-import Practice from './screens/Practice'
-import Progress from './screens/Progress'
-import ParentView from './screens/ParentView'
-import TeacherDashboard from './screens/TeacherDashboard'
-import AdminDashboard from './screens/AdminDashboard'
-import AdminLogin from './screens/AdminLogin'
-import NotFound from './screens/NotFound'
+
+// Lazy-loaded screens — each becomes its own chunk so the initial download stays
+// small on low-end Android devices and slow / metered South African connections.
+const Welcome = lazy(() => import('./screens/Welcome'))
+const Signup = lazy(() => import('./screens/Signup'))
+const Apply = lazy(() => import('./screens/Apply'))
+const Login = lazy(() => import('./screens/Login'))
+const ForgotPassword = lazy(() => import('./screens/ForgotPassword'))
+const ResetPassword = lazy(() => import('./screens/ResetPassword'))
+const ProfileSetup = lazy(() => import('./screens/ProfileSetup'))
+const MeetArchie = lazy(() => import('./screens/MeetArchie'))
+const PickCompanion = lazy(() => import('./screens/PickCompanion'))
+const Tutor = lazy(() => import('./screens/Tutor'))
+const Lessons = lazy(() => import('./screens/Lessons'))
+const Practice = lazy(() => import('./screens/Practice'))
+const Progress = lazy(() => import('./screens/Progress'))
+const ParentView = lazy(() => import('./screens/ParentView'))
+const TeacherDashboard = lazy(() => import('./screens/TeacherDashboard'))
+const AdminDashboard = lazy(() => import('./screens/AdminDashboard'))
+const AdminLogin = lazy(() => import('./screens/AdminLogin'))
+const NotFound = lazy(() => import('./screens/NotFound'))
 
 function LoadingScreen() {
   return (
@@ -124,6 +128,7 @@ export default function App() {
     <BrowserRouter basename="/archie-learn">
       <ErrorBoundary>
         <AuthProvider>
+          <Suspense fallback={<LoadingScreen />}>
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<AuthRoute><Welcome /></AuthRoute>} />
@@ -155,6 +160,7 @@ export default function App() {
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </AuthProvider>
       </ErrorBoundary>
     </BrowserRouter>
