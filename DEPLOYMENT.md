@@ -60,6 +60,11 @@ fix is to **deploy a backend** and point the two env vars at it.
 
 ## 3. Supabase — BLOCKED (needs SQL editor / dashboard access)
 
+**Project:** `glfivzdteschyfvyllqw` → `https://glfivzdteschyfvyllqw.supabase.co`
+**Account:** owned under the Google account **nealtitus4823@gmail.com** — log in at
+https://supabase.com/dashboard with that account.
+**SQL editor:** https://supabase.com/dashboard/project/glfivzdteschyfvyllqw/sql/new
+
 These scripts live in the repo but have **not** been applied to the live database.
 Run them in **Supabase → SQL Editor**, in order:
 
@@ -81,13 +86,37 @@ Supabase's default mailer drops messages, so self-signups can't verify. Either:
 
 ---
 
+## 4b. Google sign-in — BLOCKED (needs Google Cloud + Supabase dashboard)
+
+The code path is fully wired: `FEATURES.GOOGLE_OAUTH = true`, a "Continue with Google"
+button on both Login and Signup (shared `src/components/GoogleButton.jsx`), and
+`signInWithGoogle()` in `AuthContext`. To make it actually work, do this ONCE:
+
+1. **Google Cloud Console** → create an OAuth 2.0 Client ID (type: Web application).
+   - Authorised redirect URI: `https://glfivzdteschyfvyllqw.supabase.co/auth/v1/callback`
+   - Copy the Client ID + Client Secret.
+2. **Supabase → Authentication → Providers → Google** → enable, paste Client ID +
+   Secret, Save.
+3. **Supabase → Authentication → URL Configuration → Redirect URLs** → add:
+   `https://aptivai-droid.github.io/archie-learn/setup`
+   (plus `http://localhost:5173/archie-learn/setup` for local dev).
+
+Until step 2 is done, the Google button shows a friendly "not available yet" message
+instead of crashing.
+
+**Caveat (POPIA):** Google sign-up skips the email Signup screen's date-of-birth
+age-gate (the <13 block and adult→/apply routing); Google users are created as
+`student` by the DB trigger. For a POPIA-clean public launch, also collect DOB on
+ProfileSetup for OAuth users. Acceptable for a controlled pilot.
+
+---
+
 ## 5. Outstanding (code/content backlog — not blockers)
 
-- **CAPS content** for the 4 newer subjects (Mathematical Literacy, Geography,
-  Accounting, Business Studies). They appear in `src/data/subjects.js` but have no
-  module in `src/data/caps/`. `Lessons.jsx` already shows a graceful empty state, so
-  this is a content task, not a bug. Pattern to follow: `src/data/caps/history.js`,
-  then register in `src/data/caps/index.js`.
+- **CAPS content** for the 4 newer subjects: **Accounting (Gr 8–12, 27 topics) and
+  Mathematical Literacy (Gr 10–12, 16 topics) are now authored and registered** in
+  `src/data/caps/index.js`. **Geography and Business Studies (Gr 8–12)** follow the
+  same `src/data/caps/history.js` pattern and are registered the same way.
 - **Service worker (offline PWA):** the manifest is now in place (`public/manifest.webmanifest`)
   so the app is installable, but there is no service worker yet. A correct one must
   scope to `/archie-learn/` and use a safe cache strategy — deferred to avoid shipping
