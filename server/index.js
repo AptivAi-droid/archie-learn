@@ -49,6 +49,88 @@ app.post('/api/chat', async (req, res) => {
   }
 })
 
+app.post('/api/mark', async (req, res) => {
+  try {
+    const { question, modelAnswer, studentAnswer, marks, subject, grade } = req.body
+
+    if (!question || !modelAnswer || !studentAnswer || !marks) {
+      return res.status(400).json({
+        error: 'Missing required fields: question, modelAnswer, studentAnswer, marks',
+      })
+    }
+
+    // Sanitise inputs — mirrors netlify/functions/mark.js
+    const safeQuestion = String(question).slice(0, 2000)
+    const safeModel = String(modelAnswer).slice(0, 2000)
+    const safeStudent = String(studentAnswer).slice(0, 3000)
+    const safeMarks = Math.min(Math.max(parseInt(marks) || 4, 1), 20)
+
+    const systemPrompt = `You are an expert South African high school exam marker working with the CAPS curriculum.
+You are fair, encouraging and thorough. You mark a student's answer against a model answer and award marks.
+
+Rules:
+1. Award marks based on the quality of the student's answer relative to the model answer.
+2. Give partial credit when the student gets part of the answer correct.
+3. Never give more marks than the maximum available.
+4. Be specific in your feedback — tell the student exactly what they got right and what they missed.
+5. End with an encouraging note (one sentence) appropriate for a South African high school student.
+6. Respond ONLY with valid JSON in this exact format:
+{
+  "score": <integer from 0 to max_marks>,
+  "feedback": "<2-4 sentences of specific feedback>",
+  "encouragement": "<one encouraging sentence>"
+}`
+
+    const userPrompt = `Subject: ${subject || 'General'} | Grade: ${grade || '10'} | Maximum marks: ${safeMarks}
+
+QUESTION:
+${safeQuestion}
+
+MODEL ANSWER:
+${safeModel}
+
+STUDENT'S ANSWER:
+${safeStudent}
+
+Mark this answer and respond with JSON only.`
+
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 512,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    })
+
+    const text = response.content[0]?.text?.trim() || ''
+
+    let result
+    try {
+      result = JSON.parse(text)
+    } catch {
+      // Model occasionally wraps JSON in prose — extract the object
+      const match = text.match(/\{[\s\S]*\}/)
+      if (match) {
+        result = JSON.parse(match[0])
+      } else {
+        throw new Error('Model returned non-JSON response')
+      }
+    }
+
+    // Clamp score to valid range
+    result.score = Math.min(Math.max(parseInt(result.score) || 0, 0), safeMarks)
+
+    res.json({
+      score: result.score,
+      maxMarks: safeMarks,
+      feedback: result.feedback || 'Good attempt.',
+      encouragement: result.encouragement || 'Keep going — you are improving!',
+    })
+  } catch (err) {
+    console.error('Mark endpoint error:', err.message)
+    res.status(500).json({ error: 'Marking service temporarily unavailable. Please try again.' })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`Archie Learn server running on port ${PORT}`)
 })

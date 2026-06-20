@@ -28,6 +28,11 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # Absolute URLs to the deployed chat/mark backend (e.g. Netlify functions).
+          # If unset, the app falls back to the same-origin /api/* paths, which only
+          # work in local dev (server/index.js) — GitHub Pages cannot host functions.
+          VITE_CHAT_API_URL: ${{ secrets.VITE_CHAT_API_URL }}
+          VITE_MARK_API_URL: ${{ secrets.VITE_MARK_API_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

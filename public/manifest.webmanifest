@@ -1,0 +1,19 @@
+{
+  "name": "Archie Learn — Your Private School. In Your Pocket.",
+  "short_name": "Archie Learn",
+  "description": "CAPS-aligned AI study partner for South African high school learners (Grades 8–12).",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A1628",
+  "theme_color": "#0A1628",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
