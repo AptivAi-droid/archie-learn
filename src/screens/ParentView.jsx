@@ -1,7 +1,32 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Link2, Users, MessageCircle, Target, LogOut } from 'lucide-react'
+import { Link2, Users, MessageCircle, Target, LogOut, Loader2 } from 'lucide-react'
+
+function useCountUp(target, active) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    if (!active || target == null) {
+      setValue(target ?? 0)
+      return
+    }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setValue(target)
+      return
+    }
+    let frame
+    const start = performance.now()
+    const duration = 500
+    function tick(now) {
+      const progress = Math.min((now - start) / duration, 1)
+      setValue(Math.round(target * progress))
+      if (progress < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [target, active])
+  return value
+}
 
 export default function ParentView() {
   const { user, profile, signOut } = useAuth()
@@ -15,6 +40,12 @@ export default function ParentView() {
   const [loadingStats, setLoadingStats] = useState(false)
 
   const parentName = profile?.first_name || 'Parent'
+
+  const statsReady = !loadingStats && !!studentStats
+  const weeklyTick = useCountUp(studentStats?.weeklySessions, statsReady)
+  const totalTick = useCountUp(studentStats?.totalSessions, statsReady)
+  const answersTick = useCountUp(studentStats?.totalAnswers, statsReady)
+  const avgTick = useCountUp(studentStats?.avgPct, statsReady)
 
   useEffect(() => {
     fetchLinks()
@@ -151,25 +182,25 @@ export default function ParentView() {
 
   if (loadingLinks) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-paper flex items-center justify-center" role="status">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-navy border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-400 text-sm">Loading…</p>
+          <div className="w-8 h-8 border-2 border-navy border-t-transparent rounded-full animate-spin mx-auto mb-3" aria-hidden="true" />
+          <p className="text-muted text-sm">Loading…</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-8">
+    <div className="min-h-screen bg-paper pb-8">
       <header className="bg-navy px-4 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-white text-xl font-bold">Parent Dashboard</h1>
+          <h1 className="font-display font-extrabold text-white text-xl tracking-tight">Parent Dashboard</h1>
           <p className="text-gold text-sm mt-0.5">Hi, {parentName}</p>
         </div>
         <button
           onClick={signOut}
-          className="text-white/70 flex items-center gap-1 text-sm hover:text-white transition-colors"
+          className="flex items-center gap-1 text-sm text-white/70 hover:text-white px-2 py-2 -mr-2 rounded-lg active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold transition-[color,transform] duration-150"
         >
           <LogOut size={16} /> Out
         </button>
@@ -183,10 +214,11 @@ export default function ParentView() {
               <button
                 key={s.id}
                 onClick={() => setSelectedStudent(s)}
-                className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium border-2 transition-colors ${
+                aria-pressed={selectedStudent?.id === s.id}
+                className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium border-2 transition-colors duration-150 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
                   selectedStudent?.id === s.id
                     ? 'bg-navy text-white border-navy'
-                    : 'bg-white text-navy border-gray-200'
+                    : 'bg-paper text-navy border-rule hover:border-rule-2'
                 }`}
               >
                 {s.first_name}
@@ -197,10 +229,10 @@ export default function ParentView() {
 
         {/* No linked students */}
         {links.length === 0 && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
-            <Users size={40} className="mx-auto text-gray-300 mb-3" />
+          <div className="bg-paper rounded-2xl p-6 shadow-sm text-center">
+            <Users size={40} className="mx-auto text-rule-2 mb-3" />
             <h2 className="text-navy font-bold text-lg mb-2">Link your child's account</h2>
-            <p className="text-gray-500 text-sm mb-4">
+            <p className="text-muted text-sm mb-4">
               Ask your child to open Archie and share their 6-character link code with you.
             </p>
           </div>
@@ -211,7 +243,7 @@ export default function ParentView() {
           <>
             <div className="bg-navy rounded-2xl p-4">
               <p className="text-gold text-xs font-bold uppercase tracking-wide">Viewing progress for</p>
-              <p className="text-white text-lg font-bold mt-0.5">
+              <p className="font-display font-bold text-white text-lg mt-0.5">
                 {selectedStudent.first_name} {selectedStudent.last_name || ''}
               </p>
               <p className="text-white/60 text-sm">
@@ -221,39 +253,44 @@ export default function ParentView() {
 
             {loadingStats ? (
               <div className="grid grid-cols-2 gap-3 animate-pulse">
-                {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-200 rounded-2xl" />)}
+                {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-paper-3 rounded-2xl" />)}
               </div>
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
-                    <p className="text-3xl font-bold text-navy">{studentStats?.weeklySessions ?? 0}</p>
-                    <p className="text-sm text-gray-500 mt-1">Sessions this week</p>
+                  <div className="bg-paper rounded-2xl p-4 shadow-sm text-center">
+                    <p className="font-display text-3xl font-bold text-navy tabular-nums">{weeklyTick}</p>
+                    <p className="text-sm text-muted mt-1">Sessions this week</p>
                   </div>
-                  <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
-                    <p className="text-3xl font-bold text-navy">{studentStats?.totalSessions ?? 0}</p>
-                    <p className="text-sm text-gray-500 mt-1">Total sessions</p>
+                  <div className="bg-paper rounded-2xl p-4 shadow-sm text-center">
+                    <p className="font-display text-3xl font-bold text-navy tabular-nums">{totalTick}</p>
+                    <p className="text-sm text-muted mt-1">Total sessions</p>
                   </div>
-                  <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
-                    <p className="text-3xl font-bold text-navy">{studentStats?.totalAnswers ?? 0}</p>
-                    <p className="text-sm text-gray-500 mt-1">Questions answered</p>
+                  <div className="bg-paper rounded-2xl p-4 shadow-sm text-center">
+                    <p className="font-display text-3xl font-bold text-navy tabular-nums">{answersTick}</p>
+                    <p className="text-sm text-muted mt-1">Questions answered</p>
                   </div>
-                  <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
-                    <p className="text-3xl font-bold text-navy">
-                      {studentStats?.avgPct !== null ? `${studentStats.avgPct}%` : '—'}
+                  <div className="bg-gold/10 border-2 border-gold/30 rounded-2xl p-4 text-center">
+                    <p className="font-display text-3xl font-bold text-navy tabular-nums">
+                      {studentStats?.avgPct !== null ? `${avgTick}%` : '—'}
                     </p>
-                    <p className="text-sm text-gray-500 mt-1">Practice avg</p>
+                    <p className="text-sm text-navy/70 mt-1">Practice avg</p>
                   </div>
                 </div>
 
                 {/* Practice bar */}
                 {studentStats?.avgPct !== null && (
-                  <div className="bg-white rounded-2xl p-4 shadow-sm">
-                    <div className="flex justify-between mb-2">
+                  <div className="bg-paper rounded-2xl p-4 shadow-sm">
+                    <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-medium text-navy">Practice performance</span>
-                      <span className="text-sm font-bold text-gold">{studentStats.avgPct}%</span>
+                      <span className="text-sm font-bold text-navy tabular-nums">
+                        {studentStats.avgPct}%
+                        <span className="ml-1 font-normal text-muted">
+                          ({studentStats.avgPct >= 70 ? 'Strong' : studentStats.avgPct >= 50 ? 'Good' : 'Needs support'})
+                        </span>
+                      </span>
                     </div>
-                    <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="w-full h-3 bg-paper-3 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${
                           studentStats.avgPct >= 70 ? 'bg-green-500' :
@@ -266,20 +303,20 @@ export default function ParentView() {
                 )}
 
                 {/* Last active */}
-                <div className="bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Last active</span>
+                <div className="bg-paper rounded-2xl p-4 shadow-sm flex items-center justify-between">
+                  <span className="text-sm text-muted">Last active</span>
                   <span className="text-sm font-medium text-navy">{studentStats?.lastActive}</span>
                 </div>
 
                 {/* Archie's note */}
-                <div className="bg-white rounded-2xl p-5 shadow-sm">
+                <div className="bg-paper rounded-2xl p-5 shadow-sm">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 bg-navy rounded-full flex items-center justify-center shrink-0">
-                      <span className="text-gold font-bold text-sm">A</span>
+                      <span className="font-display text-gold font-bold text-sm">A</span>
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-navy mb-1">Archie's note</p>
-                      <p className="text-sm text-gray-700 leading-relaxed">
+                      <p className="text-sm text-ink-2 leading-relaxed">
                         {studentStats?.weeklySessions >= 3
                           ? `${selectedStudent.first_name} is showing great consistency — ${studentStats.weeklySessions} sessions this week. Keep encouraging them!`
                           : studentStats?.totalSessions > 0
@@ -303,10 +340,10 @@ export default function ParentView() {
         )}
 
         {/* Link code input — always visible */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
+        <div className="bg-paper rounded-2xl p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <Link2 size={18} className="text-navy" />
-            <h3 className="text-navy font-bold text-sm">
+            <h3 className="font-display text-navy font-bold text-sm">
               {links.length === 0 ? 'Link a student account' : 'Link another student'}
             </h3>
           </div>
@@ -322,17 +359,19 @@ export default function ParentView() {
               onChange={(e) => setLinkCode(e.target.value.toUpperCase().slice(0, 6))}
               placeholder="6-char code"
               maxLength={6}
-              className="flex-1 h-12 px-4 border-2 border-gray-200 rounded-xl text-base text-center tracking-widest font-mono focus:border-navy focus:outline-none transition-colors uppercase"
+              aria-label="6-character link code"
+              className="flex-1 h-12 px-4 border-2 border-rule-2 rounded-xl text-base text-center tracking-widest font-mono bg-paper hover:bg-paper-2 focus:border-ink-2 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-focus transition-colors duration-200 uppercase"
             />
             <button
               onClick={redeemCode}
               disabled={linkLoading || linkCode.length < 6}
-              className="px-5 h-12 bg-navy text-white font-semibold rounded-xl disabled:opacity-40 active:opacity-90 transition-opacity"
+              className="px-5 h-12 bg-navy text-white font-semibold rounded-xl disabled:opacity-40 hover:bg-ink-2 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus transition-[background-color,transform] duration-150"
+              aria-label={linkLoading ? 'Linking…' : 'Link student account'}
             >
-              {linkLoading ? '…' : 'Link'}
+              {linkLoading ? <Loader2 size={18} className="animate-spin mx-auto" /> : 'Link'}
             </button>
           </div>
-          <p className="text-xs text-gray-400 mt-2 text-center">
+          <p className="text-xs text-muted mt-2 text-center">
             Ask your child to go to their Profile to generate a code.
           </p>
         </div>

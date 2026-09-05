@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Send, ChevronDown, Link2 } from 'lucide-react'
+import { Send, ChevronDown, Link2, Loader2 } from 'lucide-react'
 import FeedbackModal from '../components/FeedbackModal'
 import LinkCodeModal from '../components/LinkCodeModal'
 import { SUBJECTS } from '../data/subjects'
@@ -183,7 +183,7 @@ export default function Tutor() {
         <div className="flex items-center justify-between">
           <span
             onClick={handleLogoTap}
-            className="text-gold font-bold text-lg select-none cursor-default"
+            className="font-display font-extrabold text-lg tracking-tight text-gold select-none cursor-default"
           >
             Archie Learn{demoMode ? ' ·' : ''}
           </span>
@@ -193,7 +193,7 @@ export default function Tutor() {
             </span>
             <button
               onClick={() => setShowLinkCode(true)}
-              className="text-white/50 hover:text-gold transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-full text-white/50 hover:text-gold hover:bg-white/5 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold transition-[color,background-color,transform] duration-200"
               title="Share code with parent"
               aria-label="Generate parent link code"
             >
@@ -203,26 +203,32 @@ export default function Tutor() {
         </div>
         <button
           onClick={() => setShowSubjectPicker(!showSubjectPicker)}
-          className="flex items-center gap-1 mt-1 text-gold/80 text-xs"
+          aria-expanded={showSubjectPicker}
+          className="flex items-center gap-1 mt-1 text-gold/80 hover:text-gold text-xs rounded active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold transition-[color,transform] duration-150"
         >
-          {subject} <ChevronDown size={14} />
+          {subject}
+          <ChevronDown size={14} className={`transition-transform duration-200 ${showSubjectPicker ? 'rotate-180' : ''}`} />
         </button>
       </header>
 
       {/* Subject picker dropdown */}
       {showSubjectPicker && (
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          {SUBJECTS.map((s) => (
-            <button
-              key={s}
-              onClick={() => switchSubject(s)}
-              className={`w-full text-left px-4 py-3 text-sm border-b border-gray-100 last:border-0 ${
-                s === subject ? 'text-gold font-semibold bg-navy/5' : 'text-navy'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
+        <div className="bg-paper border-b border-rule shadow-sm animate-dropdown-in">
+          {SUBJECTS.map((s) => {
+            const active = s === subject
+            return (
+              <button
+                key={s}
+                onClick={() => switchSubject(s)}
+                aria-current={active || undefined}
+                className={`w-full text-left pl-3 pr-4 py-3 text-sm border-b border-rule border-l-4 last:border-b-0 transition-colors duration-150 hover:bg-paper-2 active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus ${
+                  active ? 'text-navy font-semibold bg-gold/10 border-l-gold' : 'text-ink border-l-transparent'
+                }`}
+              >
+                {s}
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -231,7 +237,7 @@ export default function Tutor() {
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex animate-message-in ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
               className={`max-w-[85%] px-4 py-3 rounded-2xl text-base leading-relaxed ${
@@ -246,9 +252,10 @@ export default function Tutor() {
         ))}
 
         {loading && (
-          <div className="flex justify-start">
-            <div className="bg-navy text-white px-4 py-3 rounded-2xl rounded-bl-sm">
-              <span className="inline-flex gap-1">
+          <div className="flex justify-start animate-message-in">
+            <div className="bg-navy text-white px-4 py-3 rounded-2xl rounded-bl-sm" role="status">
+              <span className="sr-only">Archie is typing…</span>
+              <span className="inline-flex gap-1" aria-hidden="true">
                 <span className="w-2 h-2 bg-gold rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                 <span className="w-2 h-2 bg-gold rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                 <span className="w-2 h-2 bg-gold rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -261,8 +268,8 @@ export default function Tutor() {
       </div>
 
       {/* Input area */}
-      <div className="shrink-0 bg-white border-t border-gray-200 px-4 pt-2 pb-4">
-        <p className="text-xs text-gray-400 text-center mb-2">
+      <div className="shrink-0 bg-paper border-t border-rule px-4 pt-2 pb-4">
+        <p className="text-xs text-muted text-center mb-2">
           Archie won't answer until you've had a go first.
         </p>
         <form onSubmit={sendMessage} className="flex items-center gap-2">
@@ -272,16 +279,16 @@ export default function Tutor() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type your message..."
-            className="flex-1 h-12 px-4 border-2 border-gray-200 rounded-full text-base focus:border-navy focus:outline-none transition-colors"
-            disabled={loading}
+            className="flex-1 h-12 px-4 border-2 border-rule-2 rounded-full text-base bg-paper hover:bg-paper-2 focus:border-ink-2 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-focus transition-colors duration-200"
+            aria-label="Message to Archie"
           />
           <button
             type="submit"
             disabled={!input.trim() || loading}
-            className="w-12 h-12 bg-navy text-white rounded-full flex items-center justify-center disabled:opacity-40 active:opacity-90 transition-opacity"
-            aria-label="Send message"
+            className="w-12 h-12 bg-navy text-white rounded-full flex items-center justify-center disabled:opacity-40 hover:bg-ink-2 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus transition-[background-color,transform] duration-150"
+            aria-label={loading ? 'Sending…' : 'Send message'}
           >
-            <Send size={20} />
+            {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
           </button>
         </form>
       </div>

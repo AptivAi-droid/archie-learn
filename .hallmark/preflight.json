@@ -1,0 +1,18 @@
+{
+  "scannedAt": "2026-09-05",
+  "framework": "React 19 + Vite 7 + Tailwind v4 — output override: JSX + Tailwind @theme, not CodeIgniter",
+  "entryStylesheet": "src/index.css",
+  "existingTokens": { "--color-navy": "#0A1628", "--color-gold": "#D4A017" },
+  "fontStack": "system-ui only, no web fonts (src/index.css:18, pre-change)",
+  "neutralPalette": "unqualified Tailwind gray-* utilities, ~200+ occurrences, not tokenized",
+  "radius": "raw Tailwind rounded-xl/rounded-full/rounded-2xl/rounded-lg, no --radius-* tokens",
+  "motion": "motion-cut — no framer-motion/gsap/lenis in package.json",
+  "icons": "lucide-react",
+  "designMdFound": false,
+  "hallmarkLogFound": false,
+  "offLimits": ["netlify/", "server/", "supabase/", "src/lib/supabase.js"],
+  "flaggedForConfirmationBeforeTouching": [
+    "src/components/GoogleButton.jsx — exact Google brand colors, do not restyle",
+    "src/components/BuddyCard.jsx — ~13 hardcoded companion-avatar swatch colors, confirm before touching"
+  ]
+}
