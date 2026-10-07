@@ -2,3 +2,13 @@ node_modules
 dist
 .env
 *.local
+# Backend runtime + dependencies (manifesto: never commit)
+backend/vendor/
+backend/.env
+backend/writable/cache/*
+backend/writable/logs/*
+backend/writable/session/*
+backend/writable/uploads/*
+backend/writable/debugbar/*
+!backend/writable/**/index.html
+!backend/writable/**/.htaccess

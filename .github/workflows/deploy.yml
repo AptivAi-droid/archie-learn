@@ -22,13 +22,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-      # Absolute URLs to the deployed chat/mark backend. If unset, the app falls back
-      # to same-origin /api/* paths, which only work in local dev (server/index.js).
-      VITE_CHAT_API_URL: ${{ secrets.VITE_CHAT_API_URL }}
-      VITE_MARK_API_URL: ${{ secrets.VITE_MARK_API_URL }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,20 +34,31 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # The web app lives in frontend/ since the CI4 backend split; master may still have
+      # the old root layout until dev is merged, so build whichever exists.
       - name: Build production (master)
-        working-directory: prod
-        run: npm ci && npm run build
+        env:
+          # Legacy Supabase build on master (retired once dev is merged)
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_API_URL: ${{ vars.VITE_API_URL_PROD }}
+        run: |
+          cd prod; [ -d frontend ] && cd frontend
+          npm ci && npm run build && echo "PROD_DIST=$PWD/dist" >> "$GITHUB_ENV"
       - name: Build dev
-        working-directory: devsrc
         env:
           VITE_BASE_PATH: /archie-learn/dev/
-        run: npm ci && npm run build
+          # CodeIgniter API for the pilot (repo variable, set once cPanel hosting exists)
+          VITE_API_URL: ${{ vars.VITE_API_URL_DEV }}
+        run: |
+          cd devsrc; [ -d frontend ] && cd frontend
+          npm ci && npm run build && echo "DEV_DIST=$PWD/dist" >> "$GITHUB_ENV"
       - name: Assemble site
         run: |
           mkdir -p site
-          cp -r prod/dist/. site/
+          cp -r "$PROD_DIST/." site/
           mkdir -p site/dev
-          cp -r devsrc/dist/. site/dev/
+          cp -r "$DEV_DIST/." site/dev/
           rm -f site/dev/404.html
           # Keep prod's own 404.html (SPA fallback) and prepend the dev handoff to it.
           node -e "const fs=require('fs');const f='site/404.html';fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace('<head>','<head>'+fs.readFileSync('devsrc/.github/pages-dev-handoff.html','utf8')))"

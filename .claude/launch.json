@@ -7,7 +7,7 @@
       "runtimeArgs": ["vite"],
       "port": 5173,
       "autoPort": true,
-      "cwd": "C:/Users/Raylene/OneDrive/Desktop/archie-learn"
+      "cwd": "C:/Users/Raylene/OneDrive/Desktop/Claude Code Builds/archie-learn/frontend"
     }
   ]
 }

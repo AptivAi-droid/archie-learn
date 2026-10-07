@@ -1,0 +1,78 @@
+name: Backend tests
+
+# Gate 4 of the Aptiv manifesto: migrations + PHPUnit against MySQL 9.7 on every push/PR
+# that touches the CodeIgniter backend.
+
+on:
+  push:
+    branches: [master, dev]
+    paths: ['backend/**', '.github/workflows/backend.yml']
+  pull_request:
+    paths: ['backend/**', '.github/workflows/backend.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mysql:
+        image: mysql:9.7
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: archie_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    env:
+      CI_ENVIRONMENT: testing
+      database.tests.hostname: 127.0.0.1
+      database.tests.database: archie_test
+      database.tests.username: root
+      database.tests.password: root
+      database.tests.DBDriver: MySQLi
+      database.tests.port: 3306
+      database.tests.DBPrefix: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: intl, mbstring, mysqli, curl, json
+          coverage: none
+      - name: Validate composer.json
+        run: composer validate --no-check-publish
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Lint PHP
+        run: find app tests -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+      - name: Routes load
+        run: php spark routes
+      - name: Run migrations against MySQL 9.7
+        run: php spark migrate --all
+        env:
+          CI_ENVIRONMENT: testing
+          database.default.hostname: 127.0.0.1
+          database.default.database: archie_test
+          database.default.username: root
+          database.default.password: root
+          database.default.DBDriver: MySQLi
+          database.default.port: 3306
+      - name: Rollback and re-run migrations (down() works)
+        run: php spark migrate:rollback -b 0 -f && php spark migrate --all
+        env:
+          CI_ENVIRONMENT: testing
+          database.default.hostname: 127.0.0.1
+          database.default.database: archie_test
+          database.default.username: root
+          database.default.password: root
+          database.default.DBDriver: MySQLi
+          database.default.port: 3306
+      - name: PHPUnit
+        run: vendor/bin/phpunit --colors=always
