@@ -31,7 +31,9 @@ jobs:
           --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
           --health-interval=5s --health-timeout=5s --health-retries=30
     env:
-      CI_ENVIRONMENT: testing
+      # spark must run as development: CI_ENVIRONMENT=testing is only valid inside
+      # PHPUnit (its bootstrap defines SUPPORTPATH). PHPUnit sets testing itself.
+      CI_ENVIRONMENT: development
       database.tests.hostname: 127.0.0.1
       database.tests.database: archie_test
       database.tests.username: root
@@ -57,7 +59,6 @@ jobs:
       - name: Run migrations against MySQL 9.7
         run: php spark migrate --all
         env:
-          CI_ENVIRONMENT: testing
           database.default.hostname: 127.0.0.1
           database.default.database: archie_test
           database.default.username: root
@@ -67,7 +68,6 @@ jobs:
       - name: Rollback and re-run migrations (down() works)
         run: php spark migrate:rollback -b 0 -f && php spark migrate --all
         env:
-          CI_ENVIRONMENT: testing
           database.default.hostname: 127.0.0.1
           database.default.database: archie_test
           database.default.username: root
@@ -76,3 +76,5 @@ jobs:
           database.default.port: 3306
       - name: PHPUnit
         run: vendor/bin/phpunit --colors=always
+        env:
+          CI_ENVIRONMENT: testing
