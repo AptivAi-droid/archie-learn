@@ -45,6 +45,21 @@ abstract class AuditableModel extends Model
     private array $pendingOldValues = [];
 
     /**
+     * Rows changed by the most recent update()/delete() on this model (read before the audit
+     * insert runs, which would otherwise overwrite the connection's affected-row count).
+     */
+    private int $lastAffectedRows = 0;
+
+    /**
+     * Rows changed by the most recent update()/delete(). Used for conditional, race-free
+     * "consume once" updates: $model->where('used_at', null)->update($id, …) then check === 1.
+     */
+    public function lastAffectedRows(): int
+    {
+        return $this->lastAffectedRows;
+    }
+
+    /**
      * Captures the current rows before they are changed.
      *
      * @param array<string, mixed> $data Event data
@@ -92,7 +107,12 @@ abstract class AuditableModel extends Model
      */
     protected function logAuditUpdate(array $data): array
     {
-        if (($data['result'] ?? false) === false) {
+        $this->lastAffectedRows = ($data['result'] ?? false) === false ? 0 : $this->db->affectedRows();
+
+        // Nothing changed (failed, or a conditional update matched no row): nothing to audit.
+        if ($this->lastAffectedRows === 0) {
+            $this->pendingOldValues = [];
+
             return $data;
         }
 
@@ -113,7 +133,12 @@ abstract class AuditableModel extends Model
      */
     protected function logAuditDelete(array $data): array
     {
-        if (($data['result'] ?? false) === false) {
+        $this->lastAffectedRows = ($data['result'] ?? false) === false ? 0 : $this->db->affectedRows();
+
+        // Nothing changed (failed, or a conditional update matched no row): nothing to audit.
+        if ($this->lastAffectedRows === 0) {
+            $this->pendingOldValues = [];
+
             return $data;
         }
 

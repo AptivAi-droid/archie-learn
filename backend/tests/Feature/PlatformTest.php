@@ -23,6 +23,14 @@ final class PlatformTest extends ApiTestCase
         $this->assertSame(['ok' => true, 'db' => true, 'version' => '1'], $this->body($response));
     }
 
+    public function testRootAndUnknownRoutesAreJson404(): void
+    {
+        $this->freshRequestState();
+        $root = $this->call('get', '/');
+        $root->assertStatus(404);
+        $this->assertSame(['error' => 'Not found.'], $this->body($root));
+        $this->api('get', 'does-not-exist')->assertStatus(404);
+    }
     public function testCorsPreflightForAllowedOrigin(): void
     {
         $this->freshRequestState();
@@ -69,6 +77,12 @@ final class PlatformTest extends ApiTestCase
         $this->assertSame($student['id'], (int) $update['user_id']);
         $this->assertNull(json_decode($update['old_values'], true)['first_name']);
         $this->assertSame('Audit', json_decode($update['new_values'], true)['first_name']);
+
+        // Learner content never reaches the immutable audit trail.
+        $this->api('post', 'chat/messages', ['subject' => 'Mathematics', 'content' => 'my private question'], $student['token'])->assertStatus(200);
+        $message = $this->db->table('audit_log')->where('table_name', 'chat_messages')->orderBy('id', 'DESC')->get()->getRowArray();
+        $this->assertSame('[redacted]', json_decode($message['new_values'], true)['content']);
+        $this->assertStringNotContainsString('my private question', (string) $message['new_values']);
 
         config(\Config\Email::class)->fromEmail = 'no-reply@example.co.za';
         $this->api('post', 'auth/password/forgot', ['email' => $student['email']])->assertStatus(200);

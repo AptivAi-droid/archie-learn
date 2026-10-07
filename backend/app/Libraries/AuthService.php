@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Libraries;
 
+use CodeIgniter\HTTP\IncomingRequest;
+use CodeIgniter\Shield\Authentication\Authenticators\Session;
 use CodeIgniter\Shield\Entities\User;
+use CodeIgniter\Shield\Models\LoginModel;
+use Throwable;
 
 /**
  * Student registration, login, logout and password change.
@@ -74,8 +78,13 @@ class AuthService
         $email    = is_string($input['email'] ?? null) ? $input['email'] : '';
         $password = is_string($input['password'] ?? null) ? $input['password'] : '';
         $user     = $email === '' ? null : $this->accounts->findUserByEmail($email);
+        $ok       = $user !== null && $password !== '' && $this->passwordMatches($user, $password)
+            && ! $user->isBanned() && (bool) $user->active;
 
-        if ($user === null || $password === '' || ! $this->passwordMatches($user, $password)) {
+        $this->recordAttempt($email, $ok, $user?->id);
+
+        // One generic message for unknown email, wrong password, banned and inactive accounts.
+        if (! $ok) {
             throw new ApiException("That email and password don't match.", 401);
         }
 
@@ -97,13 +106,15 @@ class AuthService
     }
 
     /**
-     * Changes the caller's password after verifying the current one.
+     * Changes the caller's password after verifying the current one, signs the user out
+     * everywhere (all tokens revoked) and returns a fresh token for this client.
      *
      * @param User                 $user  Authenticated user
      * @param array<string, mixed> $input { current_password, new_password }
+     * @return string New raw access token
      * @throws ApiException 422 invalid input, 400 wrong current password
      */
-    public function changePassword(User $user, array $input): void
+    public function changePassword(User $user, array $input): string
     {
         InputValidator::check($input, [
             'current_password' => 'required|max_length[72]',
@@ -115,6 +126,9 @@ class AuthService
         }
 
         $this->accounts->setPassword($user, (string) $input['new_password']);
+        $user->revokeAllAccessTokens();
+
+        return $this->accounts->issueToken((int) $user->id);
     }
 
     /**
@@ -132,6 +146,31 @@ class AuthService
             'new_password' => $password,
             'dob'          => ['valid_date' => 'Please enter your date of birth as YYYY-MM-DD.'],
         ];
+    }
+
+    /**
+     * Records the login attempt in Shield's auth_logins (failures never block the response).
+     *
+     * @param string          $email   Identifier as typed
+     * @param bool            $success Whether the login succeeded
+     * @param int|string|null $userId  Matched user, if any
+     */
+    private function recordAttempt(string $email, bool $success, int|string|null $userId): void
+    {
+        $request = service('request');
+
+        try {
+            model(LoginModel::class)->recordLoginAttempt(
+                Session::ID_TYPE_EMAIL_PASSWORD,
+                mb_substr($email, 0, 254),
+                $success,
+                $request instanceof IncomingRequest ? $request->getIPAddress() : null,
+                $request instanceof IncomingRequest ? (string) $request->getUserAgent() : null,
+                $userId,
+            );
+        } catch (Throwable $e) {
+            log_message('error', '[AuthService::recordAttempt] ' . $e->getMessage());
+        }
     }
 
     /**

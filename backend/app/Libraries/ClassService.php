@@ -8,6 +8,7 @@ use App\Models\ClassEnrollmentModel;
 use App\Models\ProfileModel;
 use App\Models\TeacherClassModel;
 use RuntimeException;
+use Throwable;
 
 /**
  * Teacher classes. A student can only be enrolled by entering the class code themselves
@@ -81,11 +82,19 @@ class ClassService
         $this->ownedClass($teacherId, $classId);
         $enrollments = model(ClassEnrollmentModel::class);
 
-        foreach ($enrollments->where('class_id', $classId)->findAll() as $row) {
-            $enrollments->delete((int) $row['id']);
-        }
+        try {
+            foreach ($enrollments->where('class_id', $classId)->findAll() as $row) {
+                $enrollments->delete((int) $row['id']);
+            }
 
-        model(TeacherClassModel::class)->delete($classId);
+            if (! model(TeacherClassModel::class)->delete($classId)) {
+                throw new RuntimeException('Class delete failed.');
+            }
+        } catch (Throwable $e) {
+            log_message('error', '[ClassService::delete] ' . $e->getMessage());
+
+            throw $e;
+        }
     }
 
     /**
@@ -124,10 +133,14 @@ class ClassService
         $enrollments = model(ClassEnrollmentModel::class);
         $existing    = $enrollments->where(['class_id' => (int) $class['id'], 'student_id' => $studentId])->first();
 
-        if ($existing === null && $enrollments->insert(['class_id' => (int) $class['id'], 'student_id' => $studentId]) === false) {
-            log_message('error', '[ClassService::join] ' . implode(', ', $enrollments->errors()));
+        try {
+            if ($existing === null && $enrollments->insert(['class_id' => (int) $class['id'], 'student_id' => $studentId]) === false) {
+                throw new RuntimeException('Enrollment insert failed: ' . implode(', ', $enrollments->errors()));
+            }
+        } catch (Throwable $e) {
+            log_message('error', '[ClassService::join] ' . $e->getMessage());
 
-            throw new RuntimeException('Enrollment insert failed.');
+            throw $e;
         }
 
         return [['class' => $this->studentView($class)], $existing === null];
@@ -239,7 +252,15 @@ class ClassService
             throw new ApiException('That learner is not in this class.', 404);
         }
 
-        $model->delete((int) $row['id']);
+        try {
+            if (! $model->delete((int) $row['id'])) {
+                throw new RuntimeException('Enrollment delete failed.');
+            }
+        } catch (Throwable $e) {
+            log_message('error', '[ClassService::deleteEnrollment] ' . $e->getMessage());
+
+            throw $e;
+        }
     }
 
     /**

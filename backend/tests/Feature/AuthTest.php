@@ -73,6 +73,10 @@ final class AuthTest extends ApiTestCase
         $this->assertSame("That email and password don't match.", $this->body($bad)['error']);
 
         $this->api('post', 'auth/login', ['email' => 'nobody@example.co.za', 'password' => 'whatever-123'])->assertStatus(401);
+
+        // Every attempt is recorded in Shield's auth_logins.
+        $this->seeInDatabase('auth_logins', ['identifier' => $student['email'], 'success' => 1]);
+        $this->seeInDatabase('auth_logins', ['identifier' => $student['email'], 'success' => 0]);
     }
 
     public function testMeRequiresAValidToken(): void
@@ -123,8 +127,15 @@ final class AuthTest extends ApiTestCase
 
         $this->api('put', 'me/password', ['current_password' => 'wrong-one-1', 'new_password' => 'brand-new-pass'], $student['token'])
             ->assertStatus(400);
-        $this->api('put', 'me/password', ['current_password' => 'secret-pass-1', 'new_password' => 'brand-new-pass'], $student['token'])
-            ->assertStatus(200);
+        $changed = $this->api('put', 'me/password', ['current_password' => 'secret-pass-1', 'new_password' => 'brand-new-pass'], $student['token']);
+        $changed->assertStatus(200);
+        $fresh = $this->body($changed);
+        $this->assertTrue($fresh['ok']);
+        $this->assertNotEmpty($fresh['token']);
+
+        // Every old token is revoked; the returned one works.
+        $this->api('get', 'me', [], $student['token'])->assertStatus(401);
+        $this->api('get', 'me', [], $fresh['token'])->assertStatus(200);
         $this->api('post', 'auth/login', ['email' => $student['email'], 'password' => 'brand-new-pass'])->assertStatus(200);
     }
 

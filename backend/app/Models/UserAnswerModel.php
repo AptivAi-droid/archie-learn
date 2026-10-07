@@ -30,4 +30,7 @@ class UserAnswerModel extends AuditableModel
         'answered_at' => 'required|valid_date[Y-m-d H:i:s]',
     ];
     protected $validationMessages = [];
+
+    /** Learner-generated content is kept out of the immutable audit trail (POPIA erasure). */
+    protected array $auditExclude = ['answer_text', 'ai_feedback'];
 }

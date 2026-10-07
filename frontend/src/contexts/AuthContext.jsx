@@ -124,7 +124,10 @@ export function AuthProvider({ children }) {
   // otherwise a logged-in change → PUT /me/password (needs the current password).
   async function updatePassword(newPassword, { token, currentPassword } = {}) {
     if (token) return api.auth.resetPassword({ token, password: newPassword })
-    return api.me.changePassword({ current_password: currentPassword, new_password: newPassword })
+    // The server revokes every token on a password change and returns a fresh one.
+    const data = await api.me.changePassword({ current_password: currentPassword, new_password: newPassword })
+    if (data?.token) api.setToken(data.token)
+    return data
   }
 
   async function saveProfile(fields) {

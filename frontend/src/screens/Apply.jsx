@@ -211,7 +211,7 @@ export default function Apply() {
         </div>
         <h1 className="text-3xl font-bold text-navy">Teacher / Parent application</h1>
         <p className="text-gray-500 mt-2 max-w-md">
-          Our AI agent will review your application instantly. Most are approved on the spot.
+          Archie Learn is for learners under 18, so every adult account is checked by our team before it is switched on. You can log in once your application is approved.
         </p>
       </div>
 

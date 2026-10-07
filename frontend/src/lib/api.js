@@ -4,6 +4,9 @@
 const API_ROOT = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/+$/, '')
 export const API_BASE = `${API_ROOT}/api/v1`
 export const REQUEST_TIMEOUT_MS = 15000
+// Calls that wait on Claude: must outlast the backend's CLAUDE_TIMEOUT (60 s), or the
+// learner sees "can't reach" while the server is still saving the reply.
+export const AI_TIMEOUT_MS = 90000
 
 if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
   console.error('[Archie] VITE_API_URL was NOT set at build time — falling back to http://localhost:8080.')
@@ -168,17 +171,17 @@ export const me = {
 
 export const applications = {
   submit: ({ email, password, role, dob, application_data }) =>
-    post('/applications', { email, password, role, dob, application_data }, { auth: false }),
+    post('/applications', { email, password, role, dob, application_data }, { auth: false, timeout: AI_TIMEOUT_MS }),
 }
 
 export const chat = {
-  send: ({ session_id = null, subject, content }) => post('/chat/messages', { session_id, subject, content }),
+  send: ({ session_id = null, subject, content }) => post('/chat/messages', { session_id, subject, content }, { timeout: AI_TIMEOUT_MS }),
   messages: (sessionId) => get(`/chat/sessions/${id(sessionId)}/messages`),
 }
 
 export const practice = {
   questions: ({ subject, grade, limit = 5 }) => get(`/practice/questions${query({ subject, grade, limit })}`),
-  answer: ({ question_id, answer }) => post('/practice/answers', { question_id, answer }),
+  answer: ({ question_id, answer }) => post('/practice/answers', { question_id, answer }, { timeout: AI_TIMEOUT_MS }),
 }
 
 export const lessons = {

@@ -147,8 +147,18 @@ class LearningService
 
         if ($existing === null) {
             $this->insert($model, ['user_id' => $userId, 'buddy_data' => $json]);
-        } elseif (! $model->update((int) $existing['id'], ['buddy_data' => $json])) {
-            throw new RuntimeException('Buddy update failed: ' . implode(', ', $model->errors()));
+
+            return ['buddy_data' => $data];
+        }
+
+        try {
+            if (! $model->update((int) $existing['id'], ['buddy_data' => $json])) {
+                throw new RuntimeException('Buddy update failed: ' . implode(', ', $model->errors()));
+            }
+        } catch (Throwable $e) {
+            log_message('error', '[LearningService::saveBuddy] ' . $e->getMessage());
+
+            throw $e;
         }
 
         return ['buddy_data' => $data];

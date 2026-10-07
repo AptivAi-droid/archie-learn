@@ -14,16 +14,16 @@ use CodeIgniter\HTTP\ResponseInterface;
 class PasswordController extends ApiController
 {
     /**
-     * PUT /api/v1/me/password
+     * PUT /api/v1/me/password — revokes every token and returns a fresh one.
      *
      * @return ResponseInterface JSON response
      */
     public function change(): ResponseInterface
     {
         return $this->handle(function (): array {
-            (new AuthService())->changePassword($this->user(), $this->body());
+            $token = (new AuthService())->changePassword($this->user(), $this->body());
 
-            return [['ok' => true]];
+            return [['ok' => true, 'token' => $token]];
         });
     }
 

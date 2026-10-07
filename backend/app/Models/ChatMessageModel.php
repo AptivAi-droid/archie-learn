@@ -24,4 +24,7 @@ class ChatMessageModel extends AuditableModel
         'content'    => 'required|max_length[16000]',
     ];
     protected $validationMessages = [];
+
+    /** Learner-generated content is kept out of the immutable audit trail (POPIA erasure). */
+    protected array $auditExclude = ['content'];
 }

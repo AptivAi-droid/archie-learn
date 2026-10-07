@@ -77,8 +77,13 @@ class PasswordResetService
             throw new ApiException(self::INVALID, 400);
         }
 
+        // Consume first, conditionally: of two concurrent requests with the same token only the
+        // one whose UPDATE changes the row may proceed.
+        if (! $this->consume($model, (int) $row['id'])) {
+            throw new ApiException(self::INVALID, 400);
+        }
+
         $this->accounts->setPassword($user, (string) $input['password']);
-        $this->markUsed($model, (int) $row['id']);
         $user->revokeAllAccessTokens();
     }
 
@@ -115,17 +120,28 @@ class PasswordResetService
     }
 
     /**
-     * Marks a reset token used.
+     * Marks a reset token used only if it is still unused and unexpired.
      *
      * @param PasswordResetModel $model Model
      * @param int                $id    password_resets.id
+     * @return bool True when this call consumed the token
+     * @throws RuntimeException When the update fails
      */
-    private function markUsed(PasswordResetModel $model, int $id): void
+    private function consume(PasswordResetModel $model, int $id): bool
     {
-        if (! $model->update($id, ['used_at' => Format::now()])) {
-            log_message('error', '[PasswordResetService::markUsed] ' . implode(', ', $model->errors()));
+        try {
+            $ok = $model->where('used_at', null)->where('expires_at >', Format::now())
+                ->update($id, ['used_at' => Format::now()]);
 
-            throw new RuntimeException('Could not consume reset token.');
+            if (! $ok) {
+                throw new RuntimeException('Reset token update failed: ' . implode(', ', $model->errors()));
+            }
+
+            return $model->lastAffectedRows() === 1;
+        } catch (Throwable $e) {
+            log_message('error', '[PasswordResetService::consume] ' . $e->getMessage());
+
+            throw $e;
         }
     }
 

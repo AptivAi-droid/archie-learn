@@ -6,6 +6,7 @@ namespace App\Libraries;
 
 use CodeIgniter\Database\BaseConnection;
 use Config\Database;
+use Throwable;
 
 /**
  * Per-user, per-endpoint hourly request counter backed by `rate_limits`.
@@ -42,13 +43,19 @@ class RateLimiter
         // Raw SQL on purpose: Query Builder cannot express INSERT … ON DUPLICATE KEY UPDATE
         // with an arithmetic increment, and the atomic upsert is what makes the limit race-free.
         // All values are bound, never interpolated.
-        $this->db->query(
-            'INSERT INTO ' . $this->db->escapeIdentifiers($table)
-            . ' (user_id, endpoint, window_start, request_count, created_at, updated_at)'
-            . ' VALUES (?, ?, ?, 1, ?, ?)'
-            . ' ON DUPLICATE KEY UPDATE request_count = request_count + 1, updated_at = ?',
-            [$userId, $endpoint, $window, $now, $now, $now],
-        );
+        try {
+            $this->db->query(
+                'INSERT INTO ' . $this->db->escapeIdentifiers($table)
+                . ' (user_id, endpoint, window_start, request_count, created_at, updated_at)'
+                . ' VALUES (?, ?, ?, 1, ?, ?)'
+                . ' ON DUPLICATE KEY UPDATE request_count = request_count + 1, updated_at = ?',
+                [$userId, $endpoint, $window, $now, $now, $now],
+            );
+        } catch (Throwable $e) {
+            log_message('error', '[RateLimiter::hit] ' . $e->getMessage());
+
+            throw $e;
+        }
 
         $row = $this->db->table('rate_limits')
             ->select('request_count')

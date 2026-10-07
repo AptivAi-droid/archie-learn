@@ -4,20 +4,25 @@ declare(strict_types=1);
 
 namespace App\Libraries;
 
+use App\Models\LinkCodeModel;
 use App\Models\SignupApplicationModel;
 use Config\Archie;
 use RuntimeException;
 use Throwable;
 
 /**
- * Teacher/parent applications: validated, vetted by Claude (fail-safe to NEEDS_REVIEW),
- * and auto-approved only when the vetting is confident and clean.
+ * Teacher/parent applications.
+ *
+ * Policy (minors' safety): an adult account is NEVER created automatically. Claude's vetting
+ * is stored only as a recommendation for the admin; every application is queued as
+ * NEEDS_REVIEW, or REJECTED when the AI clearly rejects it. Only an admin approval
+ * (PUT /admin/applications/{id}) creates the account.
  */
 class ApplicationService
 {
     /**
-     * @param AccountService $accounts Account creation
-     * @param VettingService $vetting  Claude vetting
+     * @param AccountService $accounts Existing-account check
+     * @param VettingService $vetting  Claude vetting (recommendation only)
      */
     public function __construct(
         private readonly AccountService $accounts = new AccountService(),
@@ -30,7 +35,7 @@ class ApplicationService
      *
      * @param array<string, mixed> $input     { email, password, role, dob, application_data }
      * @param string|null          $ipAddress Client IP
-     * @return array<string, mixed> { status, message, token?, profile? }
+     * @return array{status: string, message: string}
      * @throws ApiException 422 invalid / under 18, 409 existing account, 429 too many today
      */
     public function submit(array $input, ?string $ipAddress): array
@@ -39,31 +44,37 @@ class ApplicationService
         $email = strtolower(trim((string) $input['email']));
         $this->guardLimits($email);
 
-        $vet = $this->vetting->vet([
-            'email'            => $email,
-            'role'             => (string) $input['role'],
-            'dob'              => (string) $input['dob'],
-            'age'              => Format::age((string) $input['dob']),
-            'application_data' => $input['application_data'],
+        $data = (array) $input['application_data'];
+        $vet  = $this->vetting->vet([
+            'email'              => $email,
+            'role'               => (string) $input['role'],
+            'dob'                => (string) $input['dob'],
+            'age'                => Format::age((string) $input['dob']),
+            'application_data'   => $data,
+            'link_code_verified' => $this->linkCodeStatus($data),
         ]);
 
-        $row = [
+        $status = $vet['decision'] === 'REJECTED' ? 'REJECTED' : 'NEEDS_REVIEW';
+
+        self::store([
             'email'            => $email,
             'requested_role'   => (string) $input['role'],
             'dob'              => (string) $input['dob'],
-            'application_data' => (string) json_encode($input['application_data'], JSON_UNESCAPED_UNICODE),
+            'application_data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
+            // Kept (hashed) while pending so an admin approval — even overriding an AI
+            // rejection — can create the account with the password the applicant chose.
+            'password_hash'    => service('passwords')->hash((string) $input['password']),
+            'status'           => $status,
             'ai_decision'      => $vet['decision'],
             'ai_confidence'    => number_format($vet['confidence'], 2, '.', ''),
             'ai_reasoning'     => $vet['reasoning'],
             'ai_red_flags'     => (string) json_encode($vet['red_flags'], JSON_UNESCAPED_UNICODE),
             'ip_address'       => $ipAddress,
-        ];
+        ]);
 
-        if ($vet['decision'] === 'APPROVED') {
-            return $this->approve($row, $input);
-        }
-
-        return $this->queue($row, $vet, (string) $input['password']);
+        return $status === 'REJECTED'
+            ? ['status' => 'REJECTED', 'message' => "We couldn't verify your application. Please check your details and apply again, or contact support."]
+            : ['status' => 'NEEDS_REVIEW', 'message' => 'Thanks — our team will review your application and email you within 24 hours.'];
     }
 
     /**
@@ -121,64 +132,25 @@ class ApplicationService
     }
 
     /**
-     * Creates the account for an AI-approved application; falls back to review on failure.
+     * Server-side check of a parent's child_link_code against live link codes, so the vetting
+     * prompt can rely on a verified fact rather than an applicant's claim.
      *
-     * @param array<string, mixed> $row   Application values
-     * @param array<string, mixed> $input Request body
-     * @return array<string, mixed>
+     * @param array<string, mixed> $data application_data
+     * @return string 'verified' | 'invalid' | 'not provided'
      */
-    private function approve(array $row, array $input): array
+    private function linkCodeStatus(array $data): string
     {
-        $firstName = InputValidator::optionalString((array) $input['application_data'], 'first_name')
-            ?? explode('@', $row['email'])[0];
+        $code = is_string($data['child_link_code'] ?? null) ? strtoupper(trim($data['child_link_code'])) : '';
 
-        try {
-            $profile = $this->accounts->createAccount(
-                ['email' => $row['email'], 'role' => $row['requested_role'], 'dob' => $row['dob'], 'first_name' => mb_substr($firstName, 0, 100)],
-                (string) $input['password'],
-            );
-        } catch (RuntimeException $e) {
-            log_message('error', '[ApplicationService::approve] ' . $e->getMessage());
-            $row['ai_reasoning'] .= ' | Account creation failed; queued for review.';
-
-            return $this->queue($row, ['decision' => 'NEEDS_REVIEW'], (string) $input['password']);
+        if ($code === '') {
+            return 'not provided';
         }
 
-        self::store($row + ['status' => 'APPROVED', 'created_user_id' => (int) $profile['user_id']]);
+        $valid = preg_match('/^[A-Z0-9]{6}$/', $code) === 1
+            && model(LinkCodeModel::class)->where('code', $code)->where('used_at', null)
+                ->where('expires_at >', Format::now())->countAllResults() > 0;
 
-        return [
-            'status'  => 'APPROVED',
-            'message' => "Your account is ready. Welcome to Archie Learn!",
-            'token'   => $this->accounts->issueToken((int) $profile['user_id']),
-            'profile' => ProfileService::format($profile),
-        ];
-    }
-
-    /**
-     * Stores a NEEDS_REVIEW / REJECTED application.
-     *
-     * @param array<string, mixed> $row      Application values
-     * @param array<string, mixed> $vet      Vetting result
-     * @param string               $password Plain password (hashed and kept only for review)
-     * @return array{status: string, message: string}
-     */
-    private function queue(array $row, array $vet, string $password): array
-    {
-        if ($vet['decision'] === 'NEEDS_REVIEW') {
-            self::store($row + ['status' => 'NEEDS_REVIEW', 'password_hash' => service('passwords')->hash($password)]);
-
-            return [
-                'status'  => 'NEEDS_REVIEW',
-                'message' => 'Thanks — our team will review your application and email you within 24 hours.',
-            ];
-        }
-
-        self::store($row + ['status' => 'REJECTED']);
-
-        return [
-            'status'  => 'REJECTED',
-            'message' => "We couldn't verify your application. Please check your details and apply again, or contact support.",
-        ];
+        return $valid ? 'verified' : 'invalid';
     }
 
     /**

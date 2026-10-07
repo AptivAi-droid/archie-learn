@@ -24,4 +24,7 @@ class LinkCodeModel extends AuditableModel
         'used_at'    => 'permit_empty|valid_date[Y-m-d H:i:s]',
     ];
     protected $validationMessages = [];
+
+    /** Link codes are bearer secrets: never copied into the immutable audit trail. */
+    protected array $auditExclude = ['code'];
 }

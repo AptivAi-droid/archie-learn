@@ -9,7 +9,8 @@ use Config\Archie;
 use JsonException;
 
 /**
- * Asks Claude to vet an adult application. Fails safe: any AI failure, refusal or
+ * Asks Claude (effort medium) for a vetting RECOMMENDATION on an adult application; it never
+ * creates an account (see ApplicationService). Fails safe: any AI failure, refusal or
  * malformed answer yields NEEDS_REVIEW, and APPROVED is only accepted when confidence
  * ≥ 0.85 with no red flags (enforced here, not trusted from the model).
  */
@@ -20,7 +21,7 @@ class VettingService
     /**
      * Vets one application.
      *
-     * @param array{email: string, role: string, dob: string, age: int, application_data: array<mixed>} $application Applicant
+     * @param array{email: string, role: string, dob: string, age: int, application_data: array<mixed>, link_code_verified: string} $application Applicant
      * @return array{decision: string, confidence: float, reasoning: string, red_flags: list<string>}
      */
     public function vet(array $application): array
@@ -31,7 +32,7 @@ class VettingService
                 Prompts::VETTING_SYSTEM,
                 [['role' => 'user', 'content' => Prompts::vettingUser($application)]],
                 1024,
-                'low',
+                'medium',
             );
 
             if ($response->isRefusal()) {

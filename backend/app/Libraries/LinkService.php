@@ -7,6 +7,7 @@ namespace App\Libraries;
 use App\Models\LinkCodeModel;
 use App\Models\ParentStudentLinkModel;
 use App\Models\ProfileModel;
+use Config\Database;
 use RuntimeException;
 use Throwable;
 
@@ -67,8 +68,7 @@ class LinkService
         }
 
         $studentId = (int) $row['student_id'];
-        $codes->update((int) $row['id'], ['used_at' => Format::now()]);
-        $this->ensureLink($parentId, $studentId);
+        $this->consumeAndLink($codes, (int) $row['id'], $parentId, $studentId);
 
         $student = model(ProfileModel::class)->where('user_id', $studentId)->first();
 
@@ -160,6 +160,42 @@ class LinkService
         }
 
         throw new RuntimeException('Could not generate a unique link code.');
+    }
+
+    /**
+     * Consumes the code (conditional UPDATE; only one caller can win) and creates the link,
+     * in one transaction.
+     *
+     * @param LinkCodeModel $codes     Model
+     * @param int           $codeId    link_codes.id
+     * @param int           $parentId  Parent
+     * @param int           $studentId Student
+     * @throws ApiException 400 when the code was consumed or expired meanwhile
+     */
+    private function consumeAndLink(LinkCodeModel $codes, int $codeId, int $parentId, int $studentId): void
+    {
+        $db = Database::connect();
+        $db->transException(true)->transStart();
+
+        try {
+            $ok = $codes->where('used_at', null)->where('expires_at >', Format::now())
+                ->update($codeId, ['used_at' => Format::now()]);
+
+            if (! $ok || $codes->lastAffectedRows() !== 1) {
+                throw new ApiException(self::BAD_CODE, 400);
+            }
+
+            $this->ensureLink($parentId, $studentId);
+            $db->transComplete();
+        } catch (Throwable $e) {
+            $db->transRollback();
+
+            if (! $e instanceof ApiException) {
+                log_message('error', '[LinkService::consumeAndLink] ' . $e->getMessage());
+            }
+
+            throw $e;
+        }
     }
 
     /**

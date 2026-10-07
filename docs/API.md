@@ -44,7 +44,7 @@ This file is the contract between them. Change it first, then both sides.
 | POST | `/auth/logout` | 🔒 | – | `{ ok: true }` (revokes current token) |
 | GET | `/me` | 🔒 | – | `{ profile }` |
 | PUT | `/me/profile` | 🔒 | any of `{ first_name, last_name, grade, primary_subject, subjects, school, companion }` | `{ profile }`. `role` and `email` are NOT writable here. `grade` 8–12. |
-| PUT | `/me/password` | 🔒 | `{ current_password, new_password }` | `{ ok: true }` |
+| PUT | `/me/password` | 🔒 | `{ current_password, new_password }` | `{ ok: true, token }` — all existing tokens (incl. the one used) are revoked; the client must switch to the returned `token`. |
 | POST | `/auth/password/forgot` | – (throttled) | `{ email }` | always `{ ok: true }` (no account enumeration). Emails link `{FRONTEND_URL}reset-password?token=<token>` (valid 60 min, single use). |
 | POST | `/auth/password/reset` | – (throttled) | `{ token, password }` | `{ ok: true }`; invalid/expired → `400 "This reset link is invalid or has expired."` |
 
@@ -52,7 +52,7 @@ This file is the contract between them. Change it first, then both sides.
 
 | Method | Path | Auth | Body | Response |
 |---|---|---|---|---|
-| POST | `/applications` | – (throttled) | `{ email, password, role: "teacher"\|"parent", dob, application_data: {…} }` | `{ status: "APPROVED"\|"NEEDS_REVIEW"\|"REJECTED", message, token? , profile? }`. Age must be ≥18. Claude (Sonnet 5.5) vets `application_data`; APPROVED creates the user with that role and returns a token; NEEDS_REVIEW stores the application for an admin; REJECTED stores it. AI failure → NEEDS_REVIEW (fail safe). |
+| POST | `/applications` | – (throttled) | `{ email, password, role: "teacher"\|"parent", dob, application_data: {…} }` | `{ status: "NEEDS_REVIEW"\|"REJECTED", message }` — never a token. Age must be ≥18. **No adult account is ever created automatically** (minors' safety): Claude (Sonnet 5.5, effort medium) vets `application_data` and its decision/confidence/reasoning/red flags are stored only as a recommendation for the admin. The application is stored as `NEEDS_REVIEW`, or `REJECTED` when the AI clearly rejects it. Only `PUT /admin/applications/{id}` with `APPROVED` creates the account. AI failure → `NEEDS_REVIEW` (fail safe). |
 
 ## Tutor chat (student)
 
@@ -141,7 +141,8 @@ These fill gaps in the tables above; they do not change any documented shape.
 - **Throttled routes** (`throttle` per IP) answer `429 { error }` with a `Retry-After` header.
 - **Unknown routes** → `404 { "error": "Not found." }`. Unexpected server errors → `500 { error }`.
 - `POST /auth/register` adult response: `422 { error, code: "ADULT" }`.
-- `PUT /me/password`: wrong `current_password` → `400`; `new_password` < 8 chars → `422`.
+- `PUT /me/password`: wrong `current_password` → `400`; `new_password` < 8 chars → `422`; success
+  revokes every token and returns a new one (`{ ok: true, token }`).
 - `POST /auth/password/reset` also signs the user out everywhere (all access tokens revoked).
 - `POST /chat/messages` with `session_id: null` needs `subject` (falls back to the profile's
   `primary_subject`; neither → `422`). On a refusal from Claude's safety classifiers the reply is a
@@ -149,13 +150,21 @@ These fill gaps in the tables above; they do not change any documented shape.
 - `GET /practice/questions`: `subject` is required; `grade` optional; `limit` 1–20 (default 5).
   `topic` is `null` for the seeded question bank.
 - `POST /practice/answers`: Claude refusal or unparseable marking → `502` (nothing stored).
-- `POST /applications`: always `200` with `{ status, message, token?, profile? }`. Also: existing
-  account for the email → `409`; more than 3 applications per email in 24 h → `429`; age < 18 → `422`.
-  APPROVED from Claude is only honoured with confidence ≥ 0.85 and no red flags (otherwise
-  NEEDS_REVIEW).
+- `POST /applications`: always `200` with `{ status, message }` (status `NEEDS_REVIEW` or `REJECTED`,
+  never a token). Also: existing account for the email → `409`; more than 3 applications per email in
+  24 h → `429`; age < 18 → `422`. `ai_decision` may be `APPROVED` (a recommendation only). A parent's
+  `child_link_code` counts in vetting only if the server verifies it against a live student link code.
+  The applicant's password is kept hashed until an admin decides (so an admin can approve even an
+  AI-rejected application); it is cleared on the decision.
+- `PUT /admin/applications/{id}`: account creation and the application update are one transaction.
+  `REJECTED` on an application whose account already exists bans that account and revokes its tokens.
+- Login: banned or inactive accounts get the same generic `401` as a wrong password; every attempt is
+  recorded (Shield `auth_logins`).
+- Single-use codes (password reset tokens, parent link codes) are consumed with a conditional update;
+  of two concurrent requests with the same code only one succeeds, the other gets the usual `400`.
 - `GET /admin/overview` application items additionally carry `created_user_id` and `reviewed_at`.
   `feedback` items: `{ id, user_id, session_id, rating, what_worked, what_frustrated, created_at }`.
 - `PUT /admin/applications/{id}` APPROVED creates the account with the password the applicant chose
-  (stored hashed only while pending). If it is no longer held (e.g. previously rejected) → `409`.
+  (stored hashed only while pending). If it is no longer held (e.g. already decided) → `409`.
 - `POST /feedback` body: `{ rating: 1–5, session_id?, what_worked?, what_frustrated? }`
   (`session_id` is dropped unless it is the caller's own session).

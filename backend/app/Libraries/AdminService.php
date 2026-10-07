@@ -9,7 +9,10 @@ use App\Models\ChatSessionModel;
 use App\Models\FeedbackModel;
 use App\Models\ProfileModel;
 use App\Models\SignupApplicationModel;
+use CodeIgniter\Shield\Entities\User;
+use Config\Database;
 use RuntimeException;
+use Throwable;
 
 /**
  * Admin dashboard data and application review.
@@ -112,17 +115,65 @@ class AdminService
             'password_hash'  => null,
         ];
 
-        if ($input['status'] === 'APPROVED' && $app['created_user_id'] === null) {
-            $changes['created_user_id'] = $this->createApprovedAccount($app);
-        }
-
-        if (! $model->update($appId, $changes)) {
-            throw new RuntimeException('Application update failed: ' . implode(', ', $model->errors()));
-        }
+        $this->applyDecision($model, $app, $changes);
 
         return ['application' => ApplicationService::format($model->find($appId))];
     }
 
+    /**
+     * Creates the account (APPROVED) or blocks an existing one (REJECTED) and records the
+     * decision, all in one transaction.
+     *
+     * @param SignupApplicationModel $model   Model
+     * @param array<string, mixed>   $app     Application row
+     * @param array<string, mixed>   $changes Decision columns
+     * @throws ApiException 409 (see createApprovedAccount)
+     * @throws RuntimeException When a write fails (rolled back)
+     */
+    private function applyDecision(SignupApplicationModel $model, array $app, array $changes): void
+    {
+        $db = Database::connect();
+        $db->transException(true)->transStart();
+
+        try {
+            if ($changes['status'] === 'APPROVED' && $app['created_user_id'] === null) {
+                $changes['created_user_id'] = $this->createApprovedAccount($app);
+            }
+
+            if ($changes['status'] === 'REJECTED' && $app['created_user_id'] !== null) {
+                $this->blockUser((int) $app['created_user_id']);
+            }
+
+            if (! $model->update((int) $app['id'], $changes)) {
+                throw new RuntimeException('Application update failed: ' . implode(', ', $model->errors()));
+            }
+
+            $db->transComplete();
+        } catch (Throwable $e) {
+            $db->transRollback();
+            log_message('error', '[AdminService::applyDecision] ' . $e->getMessage());
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Bans a previously created account and revokes all of its access tokens.
+     *
+     * @param int $userId Shield user id
+     */
+    private function blockUser(int $userId): void
+    {
+        /** @var User|null $user */
+        $user = auth()->getProvider()->findById($userId);
+
+        if ($user === null) {
+            return;
+        }
+
+        $user->ban('Application rejected by an administrator.');
+        $user->revokeAllAccessTokens();
+    }
     /**
      * Creates the account for an approved application from its stored password hash.
      *

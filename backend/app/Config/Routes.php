@@ -13,9 +13,8 @@ use CodeIgniter\Router\RouteCollection;
  *
  * @var RouteCollection $routes
  */
-$routes->get('/', 'Home::index');
-
-// API-only backend: unknown routes answer in the JSON error shape.
+// API-only backend: there is no web page at `/`; unknown routes (including `/`) answer
+// with the JSON 404 error shape.
 $routes->set404Override('App\Controllers\Api\ErrorController::notFound');
 
 // CORS preflight: answered by the cors filter (204) before any auth filter can run.
