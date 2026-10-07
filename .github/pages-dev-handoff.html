@@ -1,0 +1,13 @@
+<script>
+  // Injected into the production 404.html by deploy.yml. GitHub Pages serves the root
+  // 404.html for every unknown path; paths under /archie-learn/dev/ belong to the dev
+  // build, so stash the full URL (incl. Supabase auth #hash) and hand over to the dev
+  // app, whose index.html restores it before React mounts. All other paths fall through
+  // to the production SPA that this 404.html already is.
+  (function () {
+    var l = window.location, dev = '/archie-learn/dev/'
+    if (l.pathname.indexOf(dev) !== 0) return
+    try { sessionStorage.setItem('spa-redirect', l.pathname + l.search + l.hash) } catch (e) {}
+    l.replace(dev)
+  })()
+</script>

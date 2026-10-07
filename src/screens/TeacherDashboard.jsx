@@ -379,7 +379,6 @@ function CreateClassModal({ teacherId, onClose, onCreated }) {
           <button onClick={onClose}><X size={20} className="text-gray-400" /></button>
         </div>
         {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg" role="alert">{error}</div>}
-        {success && <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg" role="status">{success}</div>}
         <div>
           <label className="block text-sm font-medium text-navy mb-1">Class name</label>
           <input
@@ -482,6 +481,7 @@ function AddStudentModal({ classId, onClose, onAdded }) {
           <button onClick={onClose}><X size={20} className="text-gray-400" /></button>
         </div>
         {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">{error}</div>}
+        {success && <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg" role="status">{success}</div>}
         <div>
           <label className="block text-sm font-medium text-navy mb-1">Student's email address</label>
           <input

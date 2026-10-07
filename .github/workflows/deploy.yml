@@ -56,7 +56,9 @@ jobs:
           mkdir -p site/dev
           cp -r devsrc/dist/. site/dev/
           rm -f site/dev/404.html
-          cp devsrc/.github/pages-404.html site/404.html
+          # Keep prod's own 404.html (SPA fallback) and prepend the dev handoff to it.
+          node -e "const fs=require('fs');const f='site/404.html';fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace('<head>','<head>'+fs.readFileSync('devsrc/.github/pages-dev-handoff.html','utf8')))"
+          grep -q "archie-learn/dev/" site/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
