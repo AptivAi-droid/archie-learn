@@ -25,6 +25,7 @@ final class PlatformTest extends ApiTestCase
 
     public function testCorsPreflightForAllowedOrigin(): void
     {
+        $this->freshRequestState();
         $response = $this->withHeaders([
             'Origin'                         => 'https://aptivai-droid.github.io',
             'Access-Control-Request-Method'  => 'POST',
@@ -38,6 +39,7 @@ final class PlatformTest extends ApiTestCase
 
     public function testCorsRejectsUnknownOrigin(): void
     {
+        $this->freshRequestState();
         $response = $this->withHeaders([
             'Origin'                        => 'https://evil.example.com',
             'Access-Control-Request-Method' => 'POST',

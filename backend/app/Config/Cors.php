@@ -46,11 +46,19 @@ class Cors extends BaseConfig
     {
         parent::__construct();
 
-        $origins = (string) env('cors.allowedOrigins', 'http://localhost:5173');
-
-        $this->default['allowedOrigins'] = array_values(array_filter(array_map(
+        $origins = array_values(array_filter(array_map(
             static fn (string $origin): string => rtrim(trim($origin), '/'),
-            explode(',', $origins),
+            explode(',', (string) env('cors.allowedOrigins', 'http://localhost:5173')),
         ), static fn (string $origin): bool => $origin !== '' && $origin !== '*'));
+
+        // Exact-match patterns instead of `allowedOrigins`: with a single entry in
+        // `allowedOrigins`, CI4 sends it to every caller regardless of the request's Origin.
+        // Patterns are always compared against the Origin header, so a disallowed origin
+        // gets no Access-Control-Allow-Origin at all.
+        $this->default['allowedOrigins']         = [];
+        $this->default['allowedOriginsPatterns'] = array_map(
+            static fn (string $origin): string => preg_quote($origin, '#'),
+            $origins,
+        );
     }
 }

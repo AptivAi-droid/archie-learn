@@ -36,6 +36,13 @@ abstract class ApiTestCase extends CIUnitTestCase
     {
         parent::setUp();
 
+        // Shared services outlive a test: the throttler keeps the cache handler it was built with
+        // (from before CIUnitTestCase::mockCache()), so throttle buckets would leak across tests.
+        // Rebuild it on the fresh mock cache. Throttling itself stays on (see AuthTest).
+        Services::resetSingle('throttler');
+        cache()->clean();
+        Services::resetSingle('response');
+
         $this->claude = new FakeClaudeClient();
         Services::injectMock('claude', $this->claude);
     }
@@ -51,7 +58,7 @@ abstract class ApiTestCase extends CIUnitTestCase
      */
     protected function api(string $method, string $path, array $body = [], ?string $token = null, array $headers = []): TestResponse
     {
-        auth('tokens')->getAuthenticator()->logout();
+        $this->freshRequestState();
 
         $headers += ['Accept' => 'application/json', 'Origin' => 'http://localhost:5173'];
 
@@ -66,6 +73,16 @@ abstract class ApiTestCase extends CIUnitTestCase
         }
 
         return $request->call(strtolower($method), 'api/v1/' . ltrim($path, '/'), $body);
+    }
+
+    /**
+     * Clears per-request shared state, as a new PHP process would: the resolved user and the
+     * shared response object (filters write headers such as CORS onto it).
+     */
+    protected function freshRequestState(): void
+    {
+        auth('tokens')->getAuthenticator()->logout();
+        Services::resetSingle('response');
     }
 
     /**

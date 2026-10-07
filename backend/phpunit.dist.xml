@@ -11,14 +11,8 @@
     failOnWarning="true"
     cacheDirectory="build/.phpunit.cache"
 >
-    <coverage pathCoverage="false" ignoreDeprecatedCodeUnits="true">
-        <report>
-            <clover outputFile="build/logs/clover.xml"/>
-            <html outputDirectory="build/logs/html"/>
-            <php outputFile="build/logs/coverage.serialized"/>
-            <text outputFile="php://stdout" showUncoveredFiles="false"/>
-        </report>
-    </coverage>
+    <!-- No <coverage> reports by default: CI runs without a coverage driver (failOnWarning).
+         For a local HTML report pass the coverage-html option to phpunit. -->
 
     <testsuites>
         <testsuite name="App">

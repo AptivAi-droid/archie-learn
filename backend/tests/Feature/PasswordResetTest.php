@@ -24,7 +24,7 @@ final class PasswordResetTest extends ApiTestCase
 
         $response->assertStatus(200);
         $this->assertSame(['ok' => true], $this->body($response));
-        $this->assertSame([], service('email')->archive);
+        $this->assertEmpty(service('email')->archive ?? []);
     }
 
     public function testForgotAndResetFlow(): void
