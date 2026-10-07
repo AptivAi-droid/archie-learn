@@ -107,7 +107,10 @@ final class PracticeTest extends ApiTestCase
 
         $this->assertSame(['buddy_data' => null], $this->body($this->api('get', 'buddy', [], $student['token'])));
         $this->api('put', 'buddy', ['buddy_data' => ['species' => 'owl', 'level' => 2]], $student['token'])->assertStatus(200);
-        $this->assertSame(['species' => 'owl', 'level' => 2], $this->body($this->api('get', 'buddy', [], $student['token']))['buddy_data']);
+        // MySQL JSON columns normalise key order, so compare keys/values/types, not order.
+        $buddy = $this->body($this->api('get', 'buddy', [], $student['token']))['buddy_data'];
+        ksort($buddy);
+        $this->assertSame(['level' => 2, 'species' => 'owl'], $buddy);
         $this->api('put', 'buddy', ['buddy_data' => [1, 2, 3]], $student['token'])->assertStatus(422);
     }
 
