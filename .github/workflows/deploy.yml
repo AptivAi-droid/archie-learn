@@ -1,8 +1,13 @@
 name: Deploy to GitHub Pages
 
+# One Pages site, two builds:
+#   master -> https://aptivai-droid.github.io/archie-learn/      (production)
+#   dev    -> https://aptivai-droid.github.io/archie-learn/dev/  (student pilot / testing)
+# A push to either branch rebuilds BOTH so neither wipes the other.
+
 on:
   push:
-    branches: [master]
+    branches: [master, dev]
   workflow_dispatch:
 
 permissions:
@@ -17,25 +22,44 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      # Absolute URLs to the deployed chat/mark backend. If unset, the app falls back
+      # to same-origin /api/* paths, which only work in local dev (server/index.js).
+      VITE_CHAT_API_URL: ${{ secrets.VITE_CHAT_API_URL }}
+      VITE_MARK_API_URL: ${{ secrets.VITE_MARK_API_URL }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: master
+          path: prod
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          path: devsrc
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run build
+      - name: Build production (master)
+        working-directory: prod
+        run: npm ci && npm run build
+      - name: Build dev
+        working-directory: devsrc
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          # Absolute URLs to the deployed chat/mark backend (e.g. Netlify functions).
-          # If unset, the app falls back to the same-origin /api/* paths, which only
-          # work in local dev (server/index.js) — GitHub Pages cannot host functions.
-          VITE_CHAT_API_URL: ${{ secrets.VITE_CHAT_API_URL }}
-          VITE_MARK_API_URL: ${{ secrets.VITE_MARK_API_URL }}
+          VITE_BASE_PATH: /archie-learn/dev/
+        run: npm ci && npm run build
+      - name: Assemble site
+        run: |
+          mkdir -p site
+          cp -r prod/dist/. site/
+          mkdir -p site/dev
+          cp -r devsrc/dist/. site/dev/
+          rm -f site/dev/404.html
+          cp devsrc/.github/pages-404.html site/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: site
 
   deploy:
     environment:

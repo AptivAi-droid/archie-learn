@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Archie Learn</title>
+  <script>
+    // GitHub Pages serves this file for any unknown path. Both the prod build
+    // (/archie-learn/) and the dev build (/archie-learn/dev/) are SPAs, so stash
+    // the full URL (incl. Supabase auth #hash) and bounce to the right app root;
+    // that app's index.html restores the URL before React mounts.
+    (function () {
+      var l = window.location
+      var root = l.pathname.indexOf('/archie-learn/dev/') === 0 ? '/archie-learn/dev/' : '/archie-learn/'
+      try { sessionStorage.setItem('spa-redirect', l.pathname + l.search + l.hash) } catch (e) {}
+      l.replace(root)
+    })()
+  </script>
+</head>
+<body></body>
+</html>

@@ -6,7 +6,8 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIU
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storageKey: 'archie-learn-auth',
+    // Prod and dev share the github.io origin — keep their sessions separate
+    storageKey: import.meta.env.BASE_URL.includes('/dev/') ? 'archie-learn-dev-auth' : 'archie-learn-auth',
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,

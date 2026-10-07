@@ -125,7 +125,7 @@ function MeetArchieRoute({ children }) {
 
 export default function App() {
   return (
-    <BrowserRouter basename="/archie-learn">
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <ErrorBoundary>
         <AuthProvider>
           <Suspense fallback={<LoadingScreen />}>

@@ -95,7 +95,7 @@ export function AuthProvider({ children }) {
 
   async function resetPasswordForEmail(email) {
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/archie-learn/reset-password`,
+      redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}reset-password`,
     })
     if (error) throw error
     return data
@@ -111,7 +111,7 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/archie-learn/setup`,
+        redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}setup`,
       },
     })
     if (error) throw error

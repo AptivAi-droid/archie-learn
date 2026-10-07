@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0A1628" />
     <meta name="description" content="CAPS-aligned AI study partner for South African high school learners (Grades 8–12). Tutoring, practice with AI marking, and progress tracking." />
+    <script>
+      // GitHub Pages SPA deep-link support. Pages serves the root 404.html for any
+      // unknown path; if that path belongs to the dev build (BASE/dev/...), hand it
+      // over to the dev app, which restores the full URL (incl. auth hash) on load.
+      (function () {
+        var base = '%BASE_URL%', dev = base + 'dev/', l = window.location
+        try {
+          if (l.pathname.indexOf(dev) === 0) {
+            sessionStorage.setItem('spa-redirect', l.pathname + l.search + l.hash)
+            l.replace(dev)
+            return
+          }
+          var r = sessionStorage.getItem('spa-redirect')
+          if (r) {
+            sessionStorage.removeItem('spa-redirect')
+            if (r.indexOf(base) === 0) history.replaceState(null, '', r)
+          }
+        } catch (e) {}
+      })()
+    </script>
     <title>Archie Learn — Your Private School. In Your Pocket.</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 

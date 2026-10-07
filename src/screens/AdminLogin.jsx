@@ -106,7 +106,7 @@ export default function AdminLogin() {
 
       <p className="text-xs text-white/40 mt-12 text-center max-w-xs">
         Non-admin users will be redirected. If you reached this page by accident, return to the{' '}
-        <a href="/archie-learn/" className="text-gold underline">main site</a>.
+        <a href={import.meta.env.BASE_URL} className="text-gold underline">main site</a>.
       </p>
     </div>
   )
