@@ -352,6 +352,27 @@ create policy "Teachers can view enrolled student sessions" on public.chat_sessi
 -- SEED: Practice questions per subject (Grades 9, 10, 11 samples)
 -- ─────────────────────────────────────────────────────────────────────────────
 
+-- Natural key so re-running the seed never duplicates questions.
+-- De-duplicate first (answers are re-pointed to the kept row), then enforce.
+with ranked as (
+  select id, first_value(id) over (partition by subject, grade, question_text
+                                   order by created_at nulls last, id) as keep_id
+  from public.practice_questions
+)
+update public.user_answers ua set question_id = r.keep_id
+from ranked r where ua.question_id = r.id and r.id <> r.keep_id;
+
+with ranked as (
+  select id, first_value(id) over (partition by subject, grade, question_text
+                                   order by created_at nulls last, id) as keep_id
+  from public.practice_questions
+)
+delete from public.practice_questions pq
+using ranked r where pq.id = r.id and r.id <> r.keep_id;
+
+create unique index if not exists practice_questions_natural_key
+  on public.practice_questions (subject, grade, question_text);
+
 insert into public.practice_questions (subject, grade, question_text, model_answer, marks, difficulty) values
 
 -- Mathematics Grade 9
@@ -437,7 +458,7 @@ insert into public.practice_questions (subject, grade, question_text, model_answ
 ('History', 8, 'What is a primary source? Give one example.', 'A primary source is original evidence from the time being studied. Examples include diaries, letters, photographs, government documents, and eyewitness accounts.', 4, 'easy'),
 ('History', 8, 'Explain one reason why early humans moved from place to place (nomadic lifestyle).', 'Early humans were hunter-gatherers and had to follow animal migrations and seasonal plant growth for food. Once resources in an area were depleted, they moved on.', 4, 'easy')
 
-on conflict do nothing;
+on conflict (subject, grade, question_text) do nothing;
 -- ============================================================
 -- Migration: Claude Code Architecture Features
 -- Archie Learn — claw-code integration

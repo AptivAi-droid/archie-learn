@@ -1,100 +1,45 @@
-# Two Supabase fixes to unlock the pilot (5 minutes total)
+# Applying the Archie Learn database to Supabase
 
-You own the Supabase project under `nealtitus4823@gmail.com`. Log into [supabase.com/dashboard](https://supabase.com/dashboard) with that Google account.
+One SQL file builds or repairs the whole database: **`supabase/FULL_SETUP_FRESH_PROJECT.sql`**.
+Every statement in it is idempotent, so you can run it on an empty project or on one that already has some or all of the old scripts applied.
 
----
+## 1. Run the SQL
 
-## Fix 1 — Apply the missing database tables (unlocks Teacher, Practice, Parent linking)
+**Case A: the project was restored, or the old scripts were applied (or you don't know which ones were)**
+1. Supabase Dashboard → your project → **SQL Editor** → New query.
+2. Paste the **entire** contents of `supabase/FULL_SETUP_FRESH_PROJECT.sql` and click **Run**.
+3. The last result grid should show `ok = true` on every row.
 
-**Why:** The deployed Supabase project is missing 8 tables that the app code expects. This is why:
-- Teacher → "Create class" errors with "Could not create class. Please try again."
-- Student → Practice tab shows "Could not load questions"
-- Parent → Cannot redeem child link codes
+**Case B: a brand-new, empty project**
+- Do the same as Case A, with the same file. Nothing else needs to run first.
 
-**How to fix (one paste, 30 seconds):**
+You don't need to run `SUPABASE_SETUP.sql`, `SUPABASE_FIX_RLS.sql`, `SUPABASE_PHASE2.sql`, `SUPABASE_PHASE3.sql`, `SUPABASE_SEED_MORE.sql` or the files in `supabase/migrations/` on their own, because the full file already contains them in the correct order.
 
-1. Open the SQL Editor:
-   **https://supabase.com/dashboard/project/glfivzdteschyfvyllqw/sql/new**
+> If you edit any of those source files, regenerate `FULL_SETUP_FRESH_PROJECT.sql` so the two stay in sync.
 
-2. Open the file `SUPABASE_SETUP.sql` in this repo (it's a consolidated copy of the two unapplied migrations).
+## 2. Auth settings (Dashboard → Authentication)
 
-3. Paste its entire contents into the SQL Editor.
+- [ ] **URL Configuration → Site URL:** `https://aptivai-droid.github.io/archie-learn/`
+- [ ] **URL Configuration → Redirect URLs** (add all three):
+  - `https://aptivai-droid.github.io/archie-learn/**`
+  - `https://aptivai-droid.github.io/archie-learn/dev/**`
+  - `http://localhost:5173/**`
+- [ ] **Sign In / Providers → Email → Confirm email:** **OFF** for the pilot. Before a public launch, configure custom SMTP (Resend/Postmark) and turn it back on.
 
-4. Click **Run**.
+## 3. Edge functions
 
-5. Refresh the live app. Teacher Create-class, Practice, and Parent linking all start working immediately. 50+ CAPS-aligned practice questions are seeded automatically.
+Run these from the repo root with the Supabase CLI logged in. `<ref>` is the project ref from the dashboard URL.
 
-If you see any "policy already exists" or "type already exists" warnings, those are safe — the SQL uses `IF NOT EXISTS` everywhere so it's safe to re-run.
-
----
-
-## Fix 2 — Stop blocking new signups on Supabase's flaky email mailer
-
-**Why:** Supabase's default email service (Mailgun) is rate-limited and often filters/drops emails to fresh Gmail / Outlook / business addresses. When you tried to sign up using your business email, the verification email never arrived. Your pilot testers will hit the same problem.
-
-**Two options — pick one:**
-
-### Option A — Disable email confirmation entirely (recommended for the pilot)
-
-1. Go to **Auth → Sign In / Up** (or "Providers" → "Email"):
-   **https://supabase.com/dashboard/project/glfivzdteschyfvyllqw/auth/providers**
-
-2. Find the **Email** provider.
-
-3. Toggle **"Confirm email"** to **OFF**.
-
-4. Save.
-
-Now any user who signs up can immediately log in. No email round-trip required.
-
-Your 7 pre-created pilot accounts (`learnertest1@`, `teacher1@`, `parent1@`, etc.) already have `email_confirmed_at` set so they were never affected — but new self-signups will now work straight away.
-
-### Option B — Custom SMTP (for full production launch later)
-
-1. Sign up at [resend.com](https://resend.com) (free up to 3 000 emails/month, 5 minutes to set up) or [postmarkapp.com](https://postmarkapp.com).
-
-2. Verify your sending domain (DNS records).
-
-3. In Supabase Dashboard → **Auth → SMTP Settings**, paste your SMTP credentials.
-
-4. Save. New verification emails now go via your SMTP — 100% delivery rate.
-
-Keep Option A on for the pilot, switch to Option B before a public launch.
-
----
-
-## Verifying it worked
-
-After applying both fixes, run this in the SQL Editor:
-
-```sql
-select table_name from information_schema.tables
-where table_schema = 'public'
-order by table_name;
+```bash
+supabase functions deploy chat mark vet-application --project-ref <ref>
+supabase secrets set ANTHROPIC_API_KEY=... ALLOWED_ORIGIN=https://aptivai-droid.github.io --project-ref <ref>
 ```
 
-You should see all 14 tables:
-
-`buddy_companions, chat_messages, chat_sessions, class_enrollments, curricula,
-feedback, learner_memory, lesson_views, lessons, link_codes,
-parent_student_links, practice_questions, profiles, rate_limits,
-teacher_classes, ultraplans, user_answers`
-
-And check the auth setting:
+## 4. Make yourself admin (once)
 
 ```sql
-select raw_app_meta_data->>'provider', count(*) from auth.users group by 1;
+update public.profiles set role = 'admin'
+where id = (select id from auth.users where lower(email) = lower('<your admin email>'));
 ```
 
-Then test on the live app: sign up with any new email. You should be logged in immediately (Option A), with no "Check your email" screen.
-
----
-
-## What to tell pilot testers
-
-Until Fix 1 is applied:
-- **Students** can fully use the app (chat with Archie, view lessons, track progress)
-- **Teachers** can log in and see their dashboard but can't create classes yet
-- **Parents** can log in and see the link-code prompt but linking won't complete
-
-After Fix 1 + 2 are applied, every flow works as designed.
+Run this in the SQL Editor after that user has signed up and finished their profile. The role-change guard allows edits from the SQL Editor and the service role, but it blocks users from changing their own role.

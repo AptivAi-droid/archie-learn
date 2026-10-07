@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth, withTimeout, AUTH_TIMEOUT_MS } from '../contexts/AuthContext'
+import { friendlyError } from '../lib/supabase'
 import { SUBJECTS, GRADES } from '../data/subjects'
 
 const ROLES = [
@@ -10,7 +11,7 @@ const ROLES = [
 ]
 
 export default function ProfileSetup() {
-  const { saveProfile } = useAuth()
+  const { user, saveProfile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -48,6 +49,8 @@ export default function ProfileSetup() {
         first_name: firstName.trim(),
         last_name: lastName.trim() || null,
         role,
+        // Teachers enroll students by email, so keep it on the profile
+        email: user?.email || null,
         subjects: selectedSubjects,
         school: school.trim() || null,
       }
@@ -57,7 +60,7 @@ export default function ProfileSetup() {
         profileData.primary_subject = selectedSubjects[0]
       }
 
-      await saveProfile(profileData)
+      await withTimeout(saveProfile(profileData), AUTH_TIMEOUT_MS, 'saveProfile')
 
       if (role === 'student') {
         navigate('/meet-archie', { state: { fromSetup: true } })
@@ -67,7 +70,7 @@ export default function ProfileSetup() {
         navigate('/parent')
       }
     } catch (err) {
-      setError(err.message)
+      setError(friendlyError(err))
     } finally {
       setLoading(false)
     }

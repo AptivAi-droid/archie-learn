@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { supabase } from '../lib/supabase'
+import { supabase, friendlyError } from '../lib/supabase'
 import { FEATURES } from '../lib/featureFlags'
 import GoogleButton from '../components/GoogleButton'
 
@@ -61,11 +61,20 @@ export default function Signup() {
           await signIn(email.trim(), password)
         }
       } catch {
-        // If signin fails, fall through to confirm screen
+        // If signin fails, fall through to the session check below
       }
 
       // Stash DOB in sessionStorage for ProfileSetup to pick up
       sessionStorage.setItem('archie-pending-dob', dob)
+
+      // Email confirmation on → signUp returns no session and signIn is refused.
+      // Don't navigate into /setup without a session (the guards would bounce us).
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setConfirmEmail(true)
+        return
+      }
+
       navigate('/setup', { state: { roleHint: 'student', dob } })
     } catch (err) {
       const msg = (err.message || '').toLowerCase()
@@ -74,7 +83,7 @@ export default function Signup() {
       } else if (msg.includes('not confirmed') || msg.includes('email_not_confirmed')) {
         setConfirmEmail(true)
       } else {
-        setError(err.message || 'Sign up failed. Please try again.')
+        setError(err.message ? friendlyError(err) : 'Sign up failed. Please try again.')
       }
     } finally {
       setLoading(false)
@@ -106,6 +115,9 @@ export default function Signup() {
       const { error: resendErr } = await supabase.auth.resend({
         type: 'signup',
         email: email.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login`,
+        },
       })
       setResendNote(resendErr ? 'Could not resend right now.' : 'Confirmation email re-sent. Check spam too.')
     } catch {

@@ -28,6 +28,17 @@ function useCountUp(target, active) {
   return value
 }
 
+// Turn redeem_link_code errors into parent-friendly text; fall back to the server message.
+function friendlyLinkError(message = '') {
+  const m = message.toLowerCase()
+  if (m.includes('expired') || m.includes('not found') || m.includes('invalid') || m.includes('used')) {
+    return 'Code not found or has expired. Ask your child for a new one.'
+  }
+  if (m.includes('parent')) return 'Only parent accounts can link to a student.'
+  if (m.includes('fetch') || m.includes('network')) return 'Could not reach the server. Check your connection and try again.'
+  return message || 'Could not link account. Please try again.'
+}
+
 export default function ParentView() {
   const { user, profile, signOut } = useAuth()
   const [links, setLinks] = useState([])
@@ -137,39 +148,14 @@ export default function ParentView() {
     setLinkLoading(true)
 
     try {
-      // Look up the code
-      const { data: codeRow, error: codeErr } = await supabase
-        .from('link_codes')
-        .select('*')
-        .eq('code', code)
-        .eq('used', false)
-        .gte('expires_at', new Date().toISOString())
-        .single()
+      // Server-side redemption: validates the code, links the child and marks the code
+      // used in one transaction. Parents never read or update link_codes directly.
+      const { error } = await supabase.rpc('redeem_link_code', { p_code: code })
 
-      if (codeErr || !codeRow) {
-        setLinkError('Code not found or has expired. Ask your child for a new one.')
+      if (error) {
+        setLinkError(friendlyLinkError(error.message))
         return
       }
-
-      // Create the link
-      const { error: linkErr } = await supabase
-        .from('parent_student_links')
-        .upsert({
-          parent_id: user.id,
-          student_id: codeRow.student_id,
-          confirmed: true,
-        })
-
-      if (linkErr) {
-        setLinkError('Could not link account. Please try again.')
-        return
-      }
-
-      // Mark code as used
-      await supabase
-        .from('link_codes')
-        .update({ used: true })
-        .eq('code', code)
 
       setLinkCode('')
       fetchLinks()

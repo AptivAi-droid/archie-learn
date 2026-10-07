@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth, withTimeout, AUTH_TIMEOUT_MS } from '../contexts/AuthContext'
+import { friendlyError } from '../lib/supabase'
 import { FEATURES } from '../lib/featureFlags'
 import GoogleButton from '../components/GoogleButton'
 
@@ -21,7 +22,7 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const { user } = await signIn(email.trim(), password)
+      await withTimeout(signIn(email.trim(), password), AUTH_TIMEOUT_MS, 'signIn')
       // AuthContext onAuthStateChange will load profile and the route guards will redirect
       navigate('/chat')
     } catch (err) {
@@ -31,10 +32,10 @@ export default function Login() {
         setError(
           "Your email hasn't been confirmed yet. Please check your inbox (and spam folder) for a confirmation link from Supabase. If you never received one, contact your pilot administrator — your account can be confirmed manually."
         )
-      } else if (msg.includes('invalid login') || msg.includes('invalid_credentials')) {
-        setError('Email or password is incorrect. Please try again.')
+      } else if (msg.includes('invalid_credentials')) {
+        setError(friendlyError('Invalid login credentials'))
       } else {
-        setError(err.message || 'Sign in failed. Please try again.')
+        setError(err.message ? friendlyError(err) : 'Sign in failed. Please try again.')
       }
     } finally {
       setLoading(false)

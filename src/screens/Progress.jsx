@@ -10,6 +10,7 @@ export default function Progress() {
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   const name = profile?.first_name || 'Learner'
 
@@ -18,8 +19,14 @@ export default function Progress() {
   }, [user])
 
   async function fetchProgress() {
-    if (!user) return
+    if (!user) {
+      // No signed-in user (yet) — never leave the skeleton spinning
+      setStats(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
+    setLoadError('')
 
     try {
       const now = new Date()
@@ -45,6 +52,9 @@ export default function Progress() {
           .eq('user_id', user.id)
           .gte('created_at', weekAgo.toISOString()),
       ])
+
+      const firstError = sessionsRes.error || answersRes.error || weekSessionsRes.error
+      if (firstError) throw firstError
 
       const sessions = sessionsRes.data || []
       const answers = answersRes.data || []
@@ -73,6 +83,7 @@ export default function Progress() {
       })
     } catch (err) {
       console.error('Failed to load progress:', err)
+      setLoadError("We couldn't load your progress right now. Please try again later.")
     } finally {
       setLoading(false)
     }
@@ -90,6 +101,12 @@ export default function Progress() {
           <ProgressSkeleton />
         ) : (
           <>
+            {loadError && (
+              <div className="bg-red-50 text-red-600 text-sm p-4 rounded-xl text-center" role="alert">
+                {loadError}
+              </div>
+            )}
+
             {/* Streak banner */}
             {stats?.streak > 0 && (
               <div className="bg-gold rounded-2xl p-4 flex items-center gap-3">
@@ -119,18 +136,18 @@ export default function Progress() {
                 icon={<Target size={20} />}
                 value={stats?.totalAnswers ?? 0}
                 label="Questions done"
-                sub={stats?.avgPct !== null ? `${stats.avgPct}% avg score` : null}
+                sub={stats?.avgPct != null ? `${stats.avgPct}% avg score` : null}
               />
               <StatCard
                 icon={<BookOpen size={20} />}
-                value={stats?.avgPct !== null ? `${stats.avgPct}%` : '—'}
+                value={stats?.avgPct != null ? `${stats.avgPct}%` : '—'}
                 label="Practice avg"
                 sub={stats?.totalAnswers > 0 ? `${stats.totalAnswers} answered` : 'Start practising!'}
               />
             </div>
 
             {/* Practice score bar */}
-            {stats?.avgPct !== null && (
+            {stats?.avgPct != null && (
               <div className="bg-white rounded-2xl p-5 shadow-sm">
                 <div className="flex justify-between mb-2">
                   <h3 className="text-navy font-bold text-sm">Practice performance</h3>
@@ -164,7 +181,7 @@ export default function Progress() {
                   <span className="text-navy font-bold text-sm">A</span>
                 </div>
                 <p className="text-white text-base leading-relaxed">
-                  {stats?.totalSessions === 0
+                  {!stats || stats.totalSessions === 0
                     ? `Hey ${name}! Start your first chat session to begin building your progress.`
                     : stats?.totalSessions < 5
                     ? `Great start, ${name}! ${stats.totalSessions} sessions in. Consistency is everything — keep showing up.`

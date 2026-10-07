@@ -11,7 +11,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 
@@ -85,12 +85,31 @@ Deno.serve(async (req: Request) => {
         })
       }
 
-      // Set role in profiles
-      await supabase.from("profiles").upsert({
+      // Set role in profiles. Apply.jsx doesn't collect the adult's own name
+      // (ProfileSetup does later), so use application_data.first_name if present,
+      // else the email local-part as a placeholder — first_name is NOT NULL.
+      const firstName =
+        String(application_data.first_name ?? "").trim() || String(email).split("@")[0]
+      const { error: profileErr } = await supabase.from("profiles").upsert({
         id: created.user.id,
+        first_name: firstName,
+        email,
         role,
         dob,
       })
+      if (profileErr) {
+        // Roll back the auth user so the applicant isn't left with a role-less account
+        console.error("vet-application profile upsert failed:", profileErr)
+        const { error: delErr } = await supabase.auth.admin.deleteUser(created.user.id)
+        if (delErr) console.error("vet-application rollback deleteUser failed:", delErr)
+        appRow.ai_decision = "NEEDS_REVIEW"
+        appRow.ai_reasoning = (aiResult.reasoning || "") + " | Profile creation failed: " + profileErr.message
+        await supabase.from("signup_applications").insert(appRow)
+        return json({
+          outcome: "NEEDS_REVIEW",
+          message: "Thanks — our team will review your application within 24 hours.",
+        })
+      }
 
       appRow.created_user_id = created.user.id
       await supabase.from("signup_applications").insert(appRow)
@@ -181,7 +200,7 @@ Return ONLY this JSON, nothing else (no prose, no markdown fences, no explanatio
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: "claude-sonnet-5-5",
         max_tokens: 500,
         messages: [{ role: "user", content: prompt }],
       }),

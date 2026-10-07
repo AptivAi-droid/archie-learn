@@ -24,7 +24,7 @@ export default function LinkCodeModal({ onClose }) {
       .gte('expires_at', new Date().toISOString())
       .order('expires_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (existing) {
       setCode(existing.code)
@@ -37,7 +37,7 @@ export default function LinkCodeModal({ onClose }) {
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 2) // 48 hours
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('link_codes')
       .insert({
         code: newCode,
@@ -47,7 +47,13 @@ export default function LinkCodeModal({ onClose }) {
       .select()
       .single()
 
-    setCode(data?.code || newCode)
+    if (error || !data) {
+      // Never show a code that was not saved — the parent would be unable to redeem it
+      console.warn('Could not create link code:', error?.message)
+      setCode(null)
+    } else {
+      setCode(data.code)
+    }
     setLoading(false)
   }
 
@@ -78,6 +84,10 @@ export default function LinkCodeModal({ onClose }) {
 
         {loading ? (
           <div className="h-20 bg-gray-100 rounded-2xl animate-pulse" />
+        ) : !code ? (
+          <div className="bg-red-50 text-red-600 text-sm p-4 rounded-2xl text-center mb-4" role="alert">
+            Couldn't create a code right now. Tap refresh to try again.
+          </div>
         ) : (
           <div className="bg-navy rounded-2xl p-5 text-center mb-4">
             <p className="text-gold font-mono text-4xl font-bold tracking-widest">{code}</p>

@@ -8,45 +8,66 @@ export function useAuth() {
 }
 
 // Timeout wrapper — never let a Supabase call hang the UI
-function withTimeout(promise, ms, label = 'operation') {
+export function withTimeout(promise, ms, label = 'operation') {
+  let timer
   return Promise.race([
     promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-    ),
-  ])
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    }),
+  ]).finally(() => clearTimeout(timer))
 }
+
+export const AUTH_TIMEOUT_MS = 10000
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [profileError, setProfileError] = useState(null)
+  // User id whose profile load last resolved (success or error). Until it matches
+  // the current user we keep `loading` true so guards never flash to /setup.
+  const [profileFor, setProfileFor] = useState(null)
+  const [sessionLoading, setSessionLoading] = useState(true)
   const mountedRef = useRef(true)
+  const loadSeqRef = useRef(0)
 
   const loadProfile = useCallback(async (userId) => {
+    const seq = ++loadSeqRef.current
     if (!userId) {
       setProfile(null)
+      setProfileError(null)
+      setProfileFor(null)
       return
     }
     try {
       // maybeSingle() returns null instead of throwing on 0 rows
-      const { data } = await withTimeout(
+      const { data, error } = await withTimeout(
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-        4000,
+        AUTH_TIMEOUT_MS,
         'loadProfile'
       )
-      if (mountedRef.current) setProfile(data || null)
+      if (error) throw error
+      // Latest call wins — ignore stale responses
+      if (!mountedRef.current || seq !== loadSeqRef.current) return
+      setProfile(data || null)
+      setProfileError(null)
+      setProfileFor(userId)
     } catch (err) {
       console.warn('loadProfile failed:', err.message)
-      if (mountedRef.current) setProfile(null)
+      if (!mountedRef.current || seq !== loadSeqRef.current) return
+      // Never overwrite a good profile with null on a transient error —
+      // only drop it if it belongs to a different user.
+      setProfile((prev) => (prev?.id === userId ? prev : null))
+      setProfileError(err)
+      setProfileFor(userId)
     }
   }, [])
 
   useEffect(() => {
     mountedRef.current = true
-    // Hard deadline — never stay on loading longer than 8s
+    // Hard deadline — never stay on the initial session check longer than 8s
     const failsafe = setTimeout(() => {
-      if (mountedRef.current) setLoading(false)
+      if (mountedRef.current) setSessionLoading(false)
     }, 8000)
 
     // Initial session check
@@ -58,19 +79,27 @@ export function AuthProvider({ children }) {
       })
       .catch((err) => console.warn('getSession failed:', err.message))
       .finally(() => {
-        if (mountedRef.current) setLoading(false)
+        if (mountedRef.current) setSessionLoading(false)
       })
 
+    // IMPORTANT: this callback must stay synchronous. supabase-js runs it while
+    // holding its auth lock; awaiting another Supabase call here (which needs the
+    // same lock) deadlocks on TOKEN_REFRESHED / reload. Defer DB work instead.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (event, session) => {
+        if (!mountedRef.current) return
         const u = session?.user ?? null
-        if (mountedRef.current) setUser(u)
-        if (u) {
-          await loadProfile(u.id)
-        } else {
-          if (mountedRef.current) setProfile(null)
+        setUser(u)
+        if (!u) {
+          loadSeqRef.current++
+          setProfile(null)
+          setProfileError(null)
+          setProfileFor(null)
+          return
         }
-        if (mountedRef.current) setLoading(false)
+        // A token refresh doesn't change the profile — skip the extra round-trip
+        if (event === 'TOKEN_REFRESHED') return
+        setTimeout(() => loadProfile(u.id), 0)
       }
     )
 
@@ -81,8 +110,16 @@ export function AuthProvider({ children }) {
     }
   }, [loadProfile])
 
+  const loading = sessionLoading || (!!user && profileFor !== user.id)
+
   async function signUp(email, password) {
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login`,
+      },
+    })
     if (error) throw error
     return data
   }
@@ -120,8 +157,19 @@ export function AuthProvider({ children }) {
 
   async function signOut() {
     await supabase.auth.signOut()
+    loadSeqRef.current++
     setUser(null)
     setProfile(null)
+    setProfileError(null)
+    setProfileFor(null)
+  }
+
+  // Store a freshly saved profile and cancel any in-flight (now stale) load
+  function applySavedProfile(saved) {
+    loadSeqRef.current++
+    setProfile(saved)
+    setProfileError(null)
+    setProfileFor(saved?.id ?? user?.id ?? null)
   }
 
   async function saveProfile(profileData) {
@@ -150,13 +198,13 @@ export function AuthProvider({ children }) {
           .select()
           .single()
         if (retry.error) throw retry.error
-        setProfile(retry.data)
+        applySavedProfile(retry.data)
         return retry.data
       }
       throw error
     }
 
-    setProfile(data)
+    applySavedProfile(data)
     return data
   }
 
@@ -164,6 +212,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user,
       profile,
+      profileError,
       loading,
       signUp,
       signIn,

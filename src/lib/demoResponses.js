@@ -170,14 +170,29 @@ export function getDemoResponse(name, subject, messageCount, userMessage) {
   return pickRandom(ENCOURAGEMENT)(name)
 }
 
+// Demo mode is a build-time opt-in for sales demos only. Unless the build sets
+// VITE_ALLOW_DEMO=true, demo mode is unavailable and any stored flag is ignored —
+// students must never silently receive canned answers.
+export const DEMO_ALLOWED = import.meta.env.VITE_ALLOW_DEMO === 'true'
+
 // Check if demo mode is enabled
 export function isDemoMode() {
-  return localStorage.getItem('archie-demo-mode') === 'true'
+  if (!DEMO_ALLOWED) return false
+  try {
+    return localStorage.getItem('archie-demo-mode') === 'true'
+  } catch {
+    return false
+  }
 }
 
-// Toggle demo mode
+// Toggle demo mode (no-op unless VITE_ALLOW_DEMO=true)
 export function toggleDemoMode() {
+  if (!DEMO_ALLOWED) return false
   const current = isDemoMode()
-  localStorage.setItem('archie-demo-mode', current ? 'false' : 'true')
+  try {
+    localStorage.setItem('archie-demo-mode', current ? 'false' : 'true')
+  } catch {
+    return current
+  }
   return !current
 }

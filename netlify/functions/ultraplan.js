@@ -2,7 +2,7 @@
  * ULTRAPLAN — Deep Learning Planner
  * Based on Claude Code's ULTRAPLAN (offloads complex tasks to Opus 4.6, Anthropic 2026).
  *
- * Uses claude-opus-4-6 for high-depth planning tasks:
+ * Uses claude-opus-5-5 for high-depth planning tasks:
  *   - Full 12-week exam prep roadmap
  *   - Subject mastery plan from scratch
  *   - Recovery plan for a learner who is far behind
@@ -68,7 +68,7 @@ export const handler = async (event) => {
 
     // ── Opus 4.6 — deep planning model ───────────────────────────────────
     const response = await anthropic.messages.create({
-      model: 'claude-opus-4-6',
+      model: 'claude-opus-5-5',
       max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }],
     })

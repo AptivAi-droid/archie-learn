@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -38,11 +38,49 @@ function LoadingScreen() {
   )
 }
 
+// Shown when we have a session but couldn't load the profile (network / timeout).
+// Without this, a missing profile would be misread as "needs setup".
+function ProfileErrorScreen() {
+  const { user, fetchProfile } = useAuth()
+  const [retrying, setRetrying] = useState(false)
+
+  async function handleRetry() {
+    setRetrying(true)
+    try {
+      await fetchProfile(user?.id)
+    } finally {
+      setRetrying(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center px-6">
+      <div className="w-full max-w-sm text-center">
+        <div className="w-12 h-12 bg-navy rounded-full flex items-center justify-center mx-auto mb-3">
+          <span className="text-gold font-bold text-lg">A</span>
+        </div>
+        <h1 className="text-xl font-bold text-navy">Can't reach Archie right now</h1>
+        <p className="text-gray-500 text-sm mt-2">
+          Check your internet connection and try again.
+        </p>
+        <button
+          onClick={handleRetry}
+          disabled={retrying}
+          className="mt-6 w-full h-12 bg-navy text-white font-semibold rounded-xl active:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          {retrying ? 'Retrying…' : 'Retry'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ProtectedRoute({ children }) {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, profileError, loading } = useAuth()
 
   if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/" replace />
+  if (profileError && !profile) return <ProfileErrorScreen />
   if (profile?.role === 'admin') return <Navigate to="/admin" replace />
   if (profile?.role === 'teacher') return <Navigate to="/teacher" replace />
   if (profile?.role === 'parent') return <Navigate to="/parent" replace />
@@ -52,10 +90,11 @@ function ProtectedRoute({ children }) {
 }
 
 function AuthRoute({ children }) {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, profileError, loading } = useAuth()
 
   if (loading) return <LoadingScreen />
   if (!user) return children
+  if (profileError && !profile) return <ProfileErrorScreen />
 
   if (profile?.role === 'admin') return <Navigate to="/admin" replace />
   if (profile?.role === 'teacher') return <Navigate to="/teacher" replace />
@@ -66,10 +105,11 @@ function AuthRoute({ children }) {
 }
 
 function SetupRoute({ children }) {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, profileError, loading } = useAuth()
 
   if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/" replace />
+  if (profileError && !profile) return <ProfileErrorScreen />
   if (profile?.role === 'admin') return <Navigate to="/admin" replace />
   if (profile?.role === 'teacher') return <Navigate to="/teacher" replace />
   if (profile?.role === 'parent') return <Navigate to="/parent" replace />
@@ -81,42 +121,46 @@ function SetupRoute({ children }) {
 }
 
 function AdminRoute({ children }) {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, profileError, loading } = useAuth()
 
   if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/admin/login" replace />
+  if (profileError && !profile) return <ProfileErrorScreen />
   if (profile?.role !== 'admin') return <Navigate to="/" replace />
 
   return children
 }
 
 function TeacherRoute({ children }) {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, profileError, loading } = useAuth()
 
   if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/login" replace />
+  if (profileError && !profile) return <ProfileErrorScreen />
   if (profile?.role !== 'teacher') return <Navigate to="/" replace />
 
   return children
 }
 
 function ParentRoute({ children }) {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, profileError, loading } = useAuth()
 
   if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/login" replace />
+  if (profileError && !profile) return <ProfileErrorScreen />
   if (profile?.role !== 'parent') return <Navigate to="/" replace />
 
   return children
 }
 
 function MeetArchieRoute({ children }) {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, profileError, loading } = useAuth()
   const location = useLocation()
   const fromSetup = location.state?.fromSetup
 
   if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/" replace />
+  if (profileError && !profile) return <ProfileErrorScreen />
   if (!profile?.first_name) return <Navigate to="/setup" replace />
   if (!fromSetup) return <Navigate to="/chat" replace />
 

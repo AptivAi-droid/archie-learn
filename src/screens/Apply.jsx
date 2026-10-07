@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { FunctionsHttpError } from '@supabase/supabase-js'
+import { supabase, friendlyError } from '../lib/supabase'
 import { SUBJECTS, GRADES } from '../data/subjects'
-
-const VET_URL = 'https://glfivzdteschyfvyllqw.supabase.co/functions/v1/vet-application'
 
 function computeAge(dobIso) {
   if (!dobIso) return null
@@ -114,21 +114,37 @@ export default function Apply() {
               why_join: whyJoin.trim(),
             }
 
-      const resp = await fetch(VET_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // functions.invoke attaches the apikey + Authorization headers the gateway requires
+      const { data, error: invokeErr } = await supabase.functions.invoke('vet-application', {
+        body: {
           email: email.trim(),
           password,
           role,
           dob,
           application_data,
-        }),
+        },
       })
-      const data = await resp.json()
 
-      if (!resp.ok && !data.outcome) {
-        setError(data.error || 'Application could not be submitted. Please try again.')
+      if (invokeErr) {
+        let message = 'Application could not be submitted. Please try again.'
+        if (invokeErr instanceof FunctionsHttpError) {
+          // Non-2xx from the function — it returns { error: '...' } with a user-facing message
+          try {
+            const body = await invokeErr.context.json()
+            if (body?.error) message = body.error
+          } catch {
+            // Body wasn't JSON — keep the generic message
+          }
+        } else {
+          message = friendlyError(invokeErr)
+        }
+        setError(message)
+        setStep('form')
+        return
+      }
+
+      if (!data?.outcome) {
+        setError(data?.error || 'Application could not be submitted. Please try again.')
         setStep('form')
         return
       }
@@ -148,7 +164,7 @@ export default function Apply() {
       setOutcome(data)
       setStep('outcome')
     } catch (err) {
-      setError(err.message || 'Network error. Please try again.')
+      setError(err.message ? friendlyError(err) : 'Network error. Please try again.')
       setStep('form')
     }
   }

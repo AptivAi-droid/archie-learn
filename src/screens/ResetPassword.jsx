@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
-import { supabase } from '../lib/supabase'
+import { useAuth, withTimeout, AUTH_TIMEOUT_MS } from '../contexts/AuthContext'
+import { supabase, friendlyError, isRecoveryFlow } from '../lib/supabase'
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('')
@@ -12,19 +12,25 @@ export default function ResetPassword() {
   const { updatePassword, signOut } = useAuth()
   const navigate = useNavigate()
 
-  // Supabase puts a recovery token in the URL hash and exchanges it for a session
+  // Supabase puts a recovery token in the URL hash and exchanges it for a session.
+  // Only a *recovery* session counts — an ordinary logged-in session must not be
+  // able to change the password from this screen.
   useEffect(() => {
     const sub = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+      if (event === 'PASSWORD_RECOVERY' && session) {
         setHasRecoverySession(true)
       }
     })
 
     // Also check immediately
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setHasRecoverySession(true)
-      else setHasRecoverySession(false)
-    })
+    withTimeout(supabase.auth.getSession(), AUTH_TIMEOUT_MS, 'getSession')
+      .then(({ data: { session } }) => {
+        setHasRecoverySession((prev) => prev === true || (!!session && isRecoveryFlow()))
+      })
+      .catch((err) => {
+        console.warn('ResetPassword getSession failed:', err.message)
+        setHasRecoverySession((prev) => prev === true)
+      })
 
     return () => sub.data.subscription.unsubscribe()
   }, [])
@@ -49,7 +55,7 @@ export default function ResetPassword() {
       await signOut()
       navigate('/login', { state: { passwordReset: true } })
     } catch (err) {
-      setError(err.message || 'Could not update password. Please request a new reset link.')
+      setError(err.message ? friendlyError(err) : 'Could not update password. Please request a new reset link.')
     } finally {
       setLoading(false)
     }
@@ -70,7 +76,7 @@ export default function ResetPassword() {
           <div className="w-16 h-16 bg-navy rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-gold text-2xl font-bold">A</span>
           </div>
-          <h1 className="text-2xl font-bold text-navy">Reset link invalid or expired</h1>
+          <h1 className="text-2xl font-bold text-navy">This reset link is invalid or has expired</h1>
           <p className="text-gray-500 mt-3">
             Password reset links are only valid for one hour and can only be used once.
             Please request a new one.

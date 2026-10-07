@@ -13,6 +13,7 @@ export default function AdminDashboard() {
   const [sessionMessages, setSessionMessages] = useState({})
   const [tab, setTab] = useState('overview')
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
     loadData()
@@ -20,17 +21,35 @@ export default function AdminDashboard() {
 
   async function loadData() {
     setLoading(true)
-    const [feedbackRes, usersRes, sessionsRes, applicationsRes] = await Promise.all([
-      supabase.from('feedback').select('*').order('created_at', { ascending: false }),
-      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-      supabase.from('chat_sessions').select('*').order('created_at', { ascending: false }),
-      supabase.from('signup_applications').select('*').order('created_at', { ascending: false }),
-    ])
-    setFeedback(feedbackRes.data || [])
-    setUsers(usersRes.data || [])
-    setSessions(sessionsRes.data || [])
-    setApplications(applicationsRes.data || [])
-    setLoading(false)
+    setLoadError('')
+    try {
+      const [feedbackRes, usersRes, sessionsRes, applicationsRes] = await Promise.all([
+        supabase.from('feedback').select('*').order('created_at', { ascending: false }),
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('chat_sessions').select('*').order('created_at', { ascending: false }),
+        supabase.from('signup_applications').select('*').order('created_at', { ascending: false }),
+      ])
+      setFeedback(feedbackRes.data || [])
+      setUsers(usersRes.data || [])
+      setSessions(sessionsRes.data || [])
+      setApplications(applicationsRes.data || [])
+
+      const failed = [
+        ['feedback', feedbackRes.error],
+        ['users', usersRes.error],
+        ['sessions', sessionsRes.error],
+        ['applications', applicationsRes.error],
+      ].filter(([, err]) => err)
+      if (failed.length) {
+        failed.forEach(([label, err]) => console.error(`Admin: failed to load ${label}:`, err.message))
+        setLoadError(`Could not load ${failed.map(([label]) => label).join(', ')}: ${failed[0][1].message}`)
+      }
+    } catch (err) {
+      console.error('Admin: failed to load dashboard:', err)
+      setLoadError('Could not load the dashboard. Check your connection and try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function approveApplication(app) {
@@ -77,11 +96,15 @@ export default function AdminDashboard() {
       setExpandedSession(expandedSession === sessionId ? null : sessionId)
       return
     }
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('chat_messages')
       .select('*')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true })
+    if (error) {
+      setLoadError(`Could not load messages: ${error.message}`)
+      return
+    }
     setSessionMessages((prev) => ({ ...prev, [sessionId]: data || [] }))
     setExpandedSession(sessionId)
   }
@@ -153,6 +176,12 @@ export default function AdminDashboard() {
       </div>
 
       <div className="p-4 max-w-2xl mx-auto">
+        {loadError && (
+          <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-4 flex items-center justify-between gap-3" role="alert">
+            <span>{loadError}</span>
+            <button onClick={loadData} className="shrink-0 font-semibold underline">Retry</button>
+          </div>
+        )}
         {/* Overview tab */}
         {tab === 'overview' && (
           <div className="space-y-4">

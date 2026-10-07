@@ -15,12 +15,16 @@ export default function Lessons() {
 
   async function logView(topicName) {
     if (!profile) return
-    // Log to DB for progress tracking (fire-and-forget)
+    // Log to DB for progress tracking (fire-and-forget). Static CAPS content has no
+    // lessons row, so the topic is identified by topic_key (subject::grade::topic).
     supabase.from('lesson_views').insert({
       user_id: profile.id,
-      lesson_id: null, // static content — no DB lesson_id needed here
+      lesson_id: null,
+      topic_key: `${subject}::${grade}::${topicName}`,
       viewed_at: new Date().toISOString(),
-    }).then(() => {})
+    }).then(({ error }) => {
+      if (error) console.warn('Could not log lesson view:', error.message)
+    })
   }
 
   function toggleTopic(index, topicName) {

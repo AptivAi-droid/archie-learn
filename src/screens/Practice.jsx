@@ -5,7 +5,59 @@ import { SUBJECTS, GRADES } from '../data/subjects'
 import { CheckCircle, XCircle, Send, RefreshCw } from 'lucide-react'
 import { sanitizeInput } from '../lib/sanitize'
 
-const MARK_API_URL = import.meta.env.VITE_MARK_API_URL || '/api/mark'
+// Default: Supabase Edge Function `mark`. VITE_MARK_API_URL overrides it for local dev
+// with server/index.js.
+const MARK_API_URL = import.meta.env.VITE_MARK_API_URL || ''
+const QUESTION_POOL_SIZE = 50
+const QUESTIONS_PER_SESSION = 5
+const MARK_UNREACHABLE = "Couldn't reach Archie to mark your answer. Check your connection and try again."
+
+// Fisher–Yates shuffle (unbiased, unlike sort(() => Math.random() - 0.5))
+function shuffle(list) {
+  const out = [...list]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+async function requestMark(body) {
+  if (MARK_API_URL) {
+    const { data: { session } } = await supabase.auth.getSession()
+    let response
+    try {
+      response = await fetch(MARK_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify(body),
+      })
+    } catch {
+      throw new Error(MARK_UNREACHABLE)
+    }
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data.error) throw new Error(data.error || MARK_UNREACHABLE)
+    return data
+  }
+
+  const { data, error } = await supabase.functions.invoke('mark', { body })
+  if (error) {
+    let message = ''
+    if (error.name !== 'FunctionsFetchError') {
+      try {
+        message = (await error.context.json())?.error || ''
+      } catch {
+        // Body was not JSON
+      }
+    }
+    throw new Error(message || MARK_UNREACHABLE)
+  }
+  if (!data || data.error) throw new Error(data?.error || MARK_UNREACHABLE)
+  return data
+}
 
 export default function Practice() {
   const { profile } = useAuth()
@@ -17,7 +69,8 @@ export default function Practice() {
   const [answer, setAnswer] = useState('')
   const [result, setResult] = useState(null)
   const [marking, setMarking] = useState(false)
-  const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [markError, setMarkError] = useState('')
   const [sessionResults, setSessionResults] = useState([])
   const [done, setDone] = useState(false)
 
@@ -33,60 +86,57 @@ export default function Practice() {
     setResult(null)
     setSessionResults([])
     setDone(false)
-    setError('')
+    setLoadError('')
+    setMarkError('')
 
-    const { data, error: dbError } = await supabase
-      .from('practice_questions')
-      .select('*')
-      .eq('subject', subject)
-      .eq('grade', parseInt(grade))
-      .limit(5)
+    try {
+      // Pull a larger pool and pick a random 5 client-side so sessions vary
+      const { data, error: dbError } = await supabase
+        .from('practice_questions')
+        .select('*')
+        .eq('subject', subject)
+        .eq('grade', parseInt(grade))
+        .limit(QUESTION_POOL_SIZE)
 
-    if (dbError) {
-      setError('Could not load questions. Please try again.')
-    } else if (!data || data.length === 0) {
-      setError('No practice questions available for this selection yet.')
-    } else {
-      // Shuffle
-      const shuffled = [...data].sort(() => Math.random() - 0.5)
-      setQuestions(shuffled)
+      if (dbError) {
+        console.warn('Could not load practice questions:', dbError.message)
+        setLoadError('Could not load questions. Please try again.')
+      } else if (!data || data.length === 0) {
+        setLoadError('No practice questions available for this selection yet.')
+      } else {
+        setQuestions(shuffle(data).slice(0, QUESTIONS_PER_SESSION))
+      }
+    } catch (err) {
+      console.warn('Could not load practice questions:', err)
+      setLoadError('Could not load questions. Please try again.')
+    } finally {
+      setLoadingQuestions(false)
     }
-    setLoadingQuestions(false)
   }
 
   async function submitAnswer() {
     if (!answer.trim() || marking) return
     setMarking(true)
-    setError('')
+    setMarkError('')
 
     const question = questions[currentIndex]
     const safeAnswer = sanitizeInput(answer, 3000)
 
     try {
-      const response = await fetch(MARK_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: question.question_text,
-          modelAnswer: question.model_answer,
-          studentAnswer: safeAnswer,
-          marks: question.marks,
-          subject,
-          grade,
-        }),
+      const data = await requestMark({
+        question: question.question_text,
+        modelAnswer: question.model_answer,
+        studentAnswer: safeAnswer,
+        marks: question.marks,
+        subject,
+        grade,
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Marking failed')
-      }
 
       setResult(data)
 
       // Save to DB
       if (profile) {
-        await supabase.from('user_answers').insert({
+        const { error: saveError } = await supabase.from('user_answers').insert({
           user_id: profile.id,
           question_id: question.id,
           answer_text: safeAnswer,
@@ -94,6 +144,7 @@ export default function Practice() {
           ai_feedback: data.feedback,
           max_marks: data.maxMarks,
         })
+        if (saveError) console.warn('Could not save answer:', saveError.message)
       }
 
       setSessionResults((prev) => [...prev, {
@@ -102,7 +153,8 @@ export default function Practice() {
         maxMarks: data.maxMarks,
       }])
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.')
+      // Keep the question and typed answer on screen; show the error under Submit
+      setMarkError(err.message || 'Something went wrong. Please try again.')
     } finally {
       setMarking(false)
     }
@@ -115,6 +167,7 @@ export default function Practice() {
       setCurrentIndex((i) => i + 1)
       setAnswer('')
       setResult(null)
+      setMarkError('')
     }
   }
 
@@ -207,13 +260,13 @@ export default function Practice() {
           </div>
         )}
 
-        {error && !loadingQuestions && (
-          <div className="bg-red-50 text-red-600 text-sm p-4 rounded-xl text-center">
-            {error}
+        {loadError && !loadingQuestions && (
+          <div className="bg-red-50 text-red-600 text-sm p-4 rounded-xl text-center" role="alert">
+            {loadError}
           </div>
         )}
 
-        {!loadingQuestions && !error && currentQuestion && (
+        {!loadingQuestions && !loadError && currentQuestion && (
           <div className="space-y-4">
             {/* Progress */}
             <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
@@ -269,6 +322,11 @@ export default function Practice() {
                     </>
                   )}
                 </button>
+                {markError && (
+                  <p className="mt-3 bg-red-50 text-red-600 text-sm p-3 rounded-xl text-center" role="alert">
+                    {markError}
+                  </p>
+                )}
               </div>
             )}
 

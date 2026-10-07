@@ -128,7 +128,7 @@ export const handler = async (event) => {
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5-5',
       max_tokens: 1024,
       ...(safeSystem ? { system: safeSystem } : {}),
       messages: safeMessages,

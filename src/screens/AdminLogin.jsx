@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth, withTimeout, AUTH_TIMEOUT_MS } from '../contexts/AuthContext'
+import { supabase, friendlyError } from '../lib/supabase'
 import { Shield } from 'lucide-react'
 
 export default function AdminLogin() {
@@ -17,20 +18,20 @@ export default function AdminLogin() {
     setLoading(true)
 
     try {
-      await signIn(email.trim(), password)
+      await withTimeout(signIn(email.trim(), password), AUTH_TIMEOUT_MS, 'signIn')
 
       // Wait briefly for AuthContext to load profile, then verify role
       await new Promise((r) => setTimeout(r, 700))
 
-      const { supabase } = await import('../lib/supabase')
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await withTimeout(supabase.auth.getUser(), AUTH_TIMEOUT_MS, 'getUser')
       if (!user) throw new Error('Could not load user.')
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle()
+      const { data: profile, error: profileErr } = await withTimeout(
+        supabase.from('profiles').select('role').eq('id', user.id).maybeSingle(),
+        AUTH_TIMEOUT_MS,
+        'loadProfile'
+      )
+      if (profileErr) throw profileErr
 
       if (profile?.role !== 'admin') {
         // Not an admin — sign them out and reject
@@ -42,10 +43,10 @@ export default function AdminLogin() {
       navigate('/admin')
     } catch (err) {
       const msg = (err.message || '').toLowerCase()
-      if (msg.includes('invalid login') || msg.includes('invalid_credentials')) {
-        setError('Email or password is incorrect.')
+      if (msg.includes('invalid_credentials')) {
+        setError(friendlyError('Invalid login credentials'))
       } else {
-        setError(err.message || 'Login failed. Please try again.')
+        setError(err.message ? friendlyError(err) : 'Login failed. Please try again.')
       }
     } finally {
       setLoading(false)

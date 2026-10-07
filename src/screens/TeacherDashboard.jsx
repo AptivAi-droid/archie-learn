@@ -253,10 +253,7 @@ export default function TeacherDashboard() {
         <AddStudentModal
           classId={selectedClass.id}
           onClose={() => setShowAddStudent(false)}
-          onAdded={() => {
-            setShowAddStudent(false)
-            fetchStudents(selectedClass.id)
-          }}
+          onAdded={() => fetchStudents(selectedClass.id)}
         />
       )}
     </div>
@@ -381,7 +378,8 @@ function CreateClassModal({ teacherId, onClose, onCreated }) {
           <h3 className="text-navy font-bold text-lg">Create a class</h3>
           <button onClick={onClose}><X size={20} className="text-gray-400" /></button>
         </div>
-        {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">{error}</div>}
+        {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg" role="alert">{error}</div>}
+        {success && <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg" role="status">{success}</div>}
         <div>
           <label className="block text-sm font-medium text-navy mb-1">Class name</label>
           <input
@@ -428,41 +426,52 @@ function CreateClassModal({ teacherId, onClose, onCreated }) {
   )
 }
 
+// Turn enroll_student_by_email errors into teacher-friendly text; fall back to the server message.
+function friendlyEnrollError(message = '') {
+  const m = message.toLowerCase()
+  if (m.includes('no student') || m.includes('not found')) {
+    return 'No student found with that email. Make sure they have registered and completed their profile.'
+  }
+  if (m.includes('duplicate') || m.includes('already')) return 'That student is already in this class.'
+  if (m.includes('not allowed') || m.includes('permission') || m.includes('own')) {
+    return 'You can only add students to your own classes.'
+  }
+  return message || 'Could not add student. Please try again.'
+}
+
 function AddStudentModal({ classId, onClose, onAdded }) {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   async function handleAdd() {
     const trimmed = email.trim().toLowerCase()
     if (!trimmed) return
     setLoading(true)
     setError('')
+    setSuccess('')
 
-    // Look up student profile by email
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id, role, email')
-      .eq('email', trimmed)
-      .eq('role', 'student')
-      .single()
+    try {
+      // Server-side enrolment: verifies the caller owns the class and looks the student up
+      // by email without exposing other profiles to the teacher.
+      const { error: enrollErr } = await supabase.rpc('enroll_student_by_email', {
+        p_class_id: classId,
+        p_email: trimmed,
+      })
 
-    if (!profile) {
-      setError('No student found with that email. Make sure they have registered and completed their profile.')
+      if (enrollErr) {
+        setError(friendlyEnrollError(enrollErr.message))
+      } else {
+        setSuccess(`${trimmed} has been added to this class.`)
+        setEmail('')
+        onAdded()
+      }
+    } catch {
+      setError('Could not add student. Please check your connection and try again.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    const { error: enrollErr } = await supabase
-      .from('class_enrollments')
-      .upsert({ class_id: classId, student_id: profile.id })
-
-    if (enrollErr && !enrollErr.message.includes('duplicate')) {
-      setError('Could not add student. Please try again.')
-    } else {
-      onAdded()
-    }
-    setLoading(false)
   }
 
   return (
@@ -478,7 +487,7 @@ function AddStudentModal({ classId, onClose, onAdded }) {
           <input
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => { setEmail(e.target.value); setSuccess('') }}
             className="w-full h-12 px-4 border-2 border-gray-200 rounded-xl text-base focus:border-navy focus:outline-none"
             placeholder="student@email.com"
           />

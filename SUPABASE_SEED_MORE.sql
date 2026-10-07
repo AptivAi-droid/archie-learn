@@ -4,6 +4,27 @@
 -- Business Studies). Safe to re-run (ON CONFLICT DO NOTHING).
 -- ============================================================
 
+-- Natural key so re-running the seed never duplicates questions.
+-- De-duplicate first (answers are re-pointed to the kept row), then enforce.
+with ranked as (
+  select id, first_value(id) over (partition by subject, grade, question_text
+                                   order by created_at nulls last, id) as keep_id
+  from public.practice_questions
+)
+update public.user_answers ua set question_id = r.keep_id
+from ranked r where ua.question_id = r.id and r.id <> r.keep_id;
+
+with ranked as (
+  select id, first_value(id) over (partition by subject, grade, question_text
+                                   order by created_at nulls last, id) as keep_id
+  from public.practice_questions
+)
+delete from public.practice_questions pq
+using ranked r where pq.id = r.id and r.id <> r.keep_id;
+
+create unique index if not exists practice_questions_natural_key
+  on public.practice_questions (subject, grade, question_text);
+
 INSERT INTO public.practice_questions (subject, grade, question_text, model_answer, marks, difficulty) VALUES
 
 -- ── English Home Language Grade 8 & 9 ──
@@ -67,4 +88,4 @@ INSERT INTO public.practice_questions (subject, grade, question_text, model_answ
 ('Business Studies', 12, 'Explain the four functions of management.', 'Planning (setting goals and how to reach them), Organising (allocating resources and people), Leading (motivating and directing staff), Controlling (measuring performance against the plan and correcting).', 8, 'medium'),
 ('Business Studies', 12, 'What is corporate social responsibility (CSR)? Give one example.', 'CSR is when a business takes responsibility for its impact on society and the environment beyond just making profit. Example: a mining company building a school in the community where it operates.', 5, 'medium')
 
-ON CONFLICT DO NOTHING;
+ON CONFLICT (subject, grade, question_text) DO NOTHING;

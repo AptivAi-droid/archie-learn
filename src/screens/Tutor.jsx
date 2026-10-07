@@ -6,25 +6,69 @@ import FeedbackModal from '../components/FeedbackModal'
 import LinkCodeModal from '../components/LinkCodeModal'
 import { SUBJECTS } from '../data/subjects'
 import { sanitizeInput } from '../lib/sanitize'
-import { getDemoResponse, isDemoMode, toggleDemoMode } from '../lib/demoResponses'
+import { getDemoResponse, isDemoMode, toggleDemoMode, DEMO_ALLOWED } from '../lib/demoResponses'
 
-const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '/api/chat'
+// Default: Supabase Edge Function `chat` (builds the system prompt server-side from the
+// learner's profile). VITE_CHAT_API_URL overrides it for local dev with server/index.js.
+const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || ''
 
-const SYSTEM_PROMPT = (name, grade, subject) => `You are Archie, a warm and encouraging AI study partner for South African high school learners. You speak in a friendly, conversational tone — like a knowledgeable friend, not a textbook. You use simple, clear language appropriate to the learner's grade level.
+const UNREACHABLE_MESSAGE =
+  "I can't reach Archie right now. Check your internet connection and try again in a moment."
 
-The learner's name is ${name}. They are in Grade ${grade}, studying ${subject}.
+class ChatError extends Error {
+  constructor(message, { status = 0, unreachable = false } = {}) {
+    super(message)
+    this.status = status
+    this.unreachable = unreachable
+  }
+}
 
-CRITICAL RULES:
-1. Never give the answer directly. Always ask the learner to attempt the problem first. If they haven't attempted it, respond with a Socratic question that guides them toward the first step.
-2. When a learner is stuck after 2 attempts, give a hint — not the answer. After 3 attempts, walk through the solution step by step, praising their effort.
-3. Always acknowledge what the learner got RIGHT before addressing what's wrong.
-4. Keep responses short — 3 to 5 sentences maximum for explanations. Break complexity into multiple short turns.
-5. Use South African context for examples where possible (taxi fares, spaza shops, sport statistics, rands and cents, local place names).
-6. Celebrate wins explicitly: "Sharp sharp!", "That's it!", "You've got it now."
-7. If a learner seems frustrated (uses words like "I don't understand", "this is hard", "I give up"), respond with extra warmth before attempting any explanation.
-8. You are trained on the South African CAPS curriculum. All explanations must be CAPS-aligned for the learner's stated grade and subject.
-9. Never use bullet points in your responses. Speak in natural conversational sentences only.
-10. Start every new session with: "What are we working on today?" — never jump straight into content.`
+async function requestChat(body) {
+  if (CHAT_API_URL) {
+    const { data: { session } } = await supabase.auth.getSession()
+    let response
+    try {
+      response = await fetch(CHAT_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify(body),
+      })
+    } catch {
+      throw new ChatError(UNREACHABLE_MESSAGE, { unreachable: true })
+    }
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data.error || !data.content) {
+      throw new ChatError(data.error || UNREACHABLE_MESSAGE, {
+        status: response.status,
+        unreachable: !data.error,
+      })
+    }
+    return data
+  }
+
+  const { data, error } = await supabase.functions.invoke('chat', { body })
+  if (error) {
+    if (error.name === 'FunctionsFetchError') {
+      throw new ChatError(UNREACHABLE_MESSAGE, { unreachable: true })
+    }
+    const status = error.context?.status || 0
+    let message = ''
+    try {
+      message = (await error.context.json())?.error || ''
+    } catch {
+      // Body was not JSON (e.g. a relay error page)
+    }
+    throw new ChatError(message || UNREACHABLE_MESSAGE, {
+      status,
+      unreachable: !message || status === 404,
+    })
+  }
+  if (!data?.content) throw new ChatError(data?.error || UNREACHABLE_MESSAGE)
+  return data
+}
 
 export default function Tutor() {
   const { user, profile, saveProfile } = useAuth()
@@ -32,6 +76,9 @@ export default function Tutor() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState(null)
+  // Resolves to the chat_sessions id. Created lazily on the first user message so that
+  // opening the tutor (or switching subject) does not count as a study session.
+  const sessionPromiseRef = useRef(null)
   const [messageCount, setMessageCount] = useState(0)
   const [showFeedback, setShowFeedback] = useState(false)
   const [showSubjectPicker, setShowSubjectPicker] = useState(false)
@@ -42,8 +89,9 @@ export default function Tutor() {
   const chatEndRef = useRef(null)
   const inputRef = useRef(null)
 
-  // Triple-tap logo to toggle demo mode (hidden from testers)
+  // Triple-tap logo to toggle demo mode — only exists in builds with VITE_ALLOW_DEMO=true
   const handleLogoTap = useCallback(() => {
+    if (!DEMO_ALLOWED) return
     tapCountRef.current += 1
     clearTimeout(tapTimerRef.current)
     tapTimerRef.current = setTimeout(() => {
@@ -74,32 +122,44 @@ export default function Tutor() {
     }
   }, [messageCount])
 
-  async function startSession() {
-    const { data } = await supabase
-      .from('chat_sessions')
-      .insert({ user_id: user.id })
-      .select()
-      .single()
-
-    if (data) setSessionId(data.id)
-
-    const openingMessage = {
-      role: 'assistant',
-      content: `Hey ${name}! What are we working on today?`,
-    }
-    setMessages([openingMessage])
+  function startSession() {
+    // Reset the conversation only — the chat_sessions row is created on the first message
+    sessionPromiseRef.current = null
+    setSessionId(null)
+    setMessages([{ role: 'assistant', content: `Hey ${name}! What are we working on today?` }])
     setMessageCount(0)
-    saveMessage(data?.id, openingMessage)
+  }
+
+  function ensureSession(openingMessage) {
+    if (!sessionPromiseRef.current) {
+      sessionPromiseRef.current = (async () => {
+        const { data, error } = await supabase
+          .from('chat_sessions')
+          .insert({ user_id: user.id })
+          .select()
+          .single()
+        if (error || !data) {
+          console.warn('Could not create chat session:', error?.message)
+          sessionPromiseRef.current = null
+          return null
+        }
+        setSessionId(data.id)
+        if (openingMessage) await saveMessage(data.id, openingMessage)
+        return data.id
+      })()
+    }
+    return sessionPromiseRef.current
   }
 
   async function saveMessage(sessId, message) {
     if (!sessId) return
-    await supabase.from('chat_messages').insert({
+    const { error } = await supabase.from('chat_messages').insert({
       session_id: sessId,
       user_id: user.id,
       role: message.role,
       content: message.content,
     })
+    if (error) console.warn('Could not save chat message:', error.message)
   }
 
   async function switchSubject(newSubject) {
@@ -122,52 +182,49 @@ export default function Tutor() {
     const safeInput = sanitizeInput(input, 2000)
     const userMessage = { role: 'user', content: safeInput }
     const updatedMessages = [...messages, userMessage]
+    const nextCount = messageCount + 1
     setMessages(updatedMessages)
     setInput('')
     setLoading(true)
-    setMessageCount((c) => c + 1)
-    saveMessage(sessionId, userMessage)
+    setMessageCount(nextCount)
+
+    const openingMessage = sessionPromiseRef.current ? null : messages.find((m) => m.role === 'assistant' && !m.error)
+    const sessionReady = ensureSession(openingMessage)
+    sessionReady.then((id) => saveMessage(id, userMessage))
 
     if (demoMode) {
-      // Demo mode: simulate realistic AI response with typing delay
+      // Demo mode (VITE_ALLOW_DEMO builds only): simulated response with typing delay
       const delay = 800 + Math.random() * 1500 // 0.8–2.3 seconds
       await new Promise((r) => setTimeout(r, delay))
-      const demoContent = getDemoResponse(name, subject, messageCount, safeInput)
+      const demoContent = getDemoResponse(name, subject, nextCount, safeInput)
       const assistantMessage = { role: 'assistant', content: demoContent }
       setMessages((prev) => [...prev, assistantMessage])
-      saveMessage(sessionId, assistantMessage)
+      sessionReady.then((id) => saveMessage(id, assistantMessage))
       setLoading(false)
       inputRef.current?.focus()
       return
     }
 
     try {
-      const response = await fetch(CHAT_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: updatedMessages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          system: SYSTEM_PROMPT(name, grade, subject),
-          userId: user?.id,
-        }),
+      const data = await requestChat({
+        // Error bubbles are UI-only — never send them back as conversation history
+        messages: updatedMessages
+          .filter((m) => !m.error)
+          .map((m) => ({ role: m.role, content: m.content })),
+        subject,
       })
-
-      const data = await response.json()
-
-      if (data.error) {
-        throw new Error(data.error)
-      }
 
       const assistantMessage = { role: 'assistant', content: data.content }
       setMessages((prev) => [...prev, assistantMessage])
-      saveMessage(sessionId, assistantMessage)
+      sessionReady.then((id) => saveMessage(id, assistantMessage))
     } catch (err) {
+      // Show the server's message verbatim (e.g. the 429 rate-limit notice)
       const errorMessage = {
         role: 'assistant',
-        content: "Eish, something went wrong on my side. Can you try sending that again?",
+        error: true,
+        content: err instanceof ChatError
+          ? err.message
+          : "Eish, something went wrong on my side. Can you try sending that again?",
       }
       setMessages((prev) => [...prev, errorMessage])
     } finally {
@@ -185,7 +242,7 @@ export default function Tutor() {
             onClick={handleLogoTap}
             className="font-display font-extrabold text-lg tracking-tight text-gold select-none cursor-default"
           >
-            Archie Learn{demoMode ? ' ·' : ''}
+            Archie Learn{DEMO_ALLOWED && demoMode ? ' ·' : ''}
           </span>
           <div className="flex items-center gap-3">
             <span className="text-white text-sm opacity-80">
@@ -243,8 +300,11 @@ export default function Tutor() {
               className={`max-w-[85%] px-4 py-3 rounded-2xl text-base leading-relaxed ${
                 msg.role === 'user'
                   ? 'bg-gold text-navy rounded-br-sm'
-                  : 'bg-navy text-white rounded-bl-sm'
+                  : msg.error
+                    ? 'bg-red-50 text-red-700 border border-red-200 rounded-bl-sm'
+                    : 'bg-navy text-white rounded-bl-sm'
               }`}
+              role={msg.error ? 'alert' : undefined}
             >
               {msg.content}
             </div>
